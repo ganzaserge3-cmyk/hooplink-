@@ -19,11 +19,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const existingContext = useContext(AuthContext);
+  const { user, loading } = useAuth();
+
   if (existingContext) {
     return <>{children}</>;
   }
-
-  const { user, loading } = useAuth();
 
   return (
     <AuthContext.Provider value={{ user, loading }}>

@@ -1,7 +1,24 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { siteConfig } from "@/lib/site";
+
+export const metadata: Metadata = {
+  title: "About",
+  description:
+    "Learn how HoopLink helps athletes build visibility, connect with coaches and scouts, and grow in a cleaner basketball community.",
+  alternates: {
+    canonical: "/about",
+  },
+  openGraph: {
+    title: `About ${siteConfig.name}`,
+    description:
+      "Learn how HoopLink helps athletes build visibility, connect with coaches and scouts, and grow in a cleaner basketball community.",
+    url: "/about",
+  },
+};
 
 const pillars = [
   {
