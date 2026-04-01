@@ -1,0 +1,1183 @@
+import {
+  addDoc,
+  arrayRemove,
+  arrayUnion,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  increment,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
+} from "firebase/firestore";
+
+import { uploadToCloudinary } from "@/lib/cloudinary";
+import { auth, db } from "@/lib/firebase";
+import { recordViewedPost } from "@/lib/history";
+import { createNotification } from "@/lib/notifications";
+
+export interface FeedPost {
+  id: string;
+  userId: string;
+  caption: string;
+  mediaUrl: string;
+  mediaType: "image" | "video";
+  contentType: "post" | "reel";
+  postType?: "standard" | "poll" | "qa";
+  sport: string;
+  createdAt?: { seconds?: number; nanoseconds?: number } | null;
+  likes: string[];
+  commentsCount: number;
+  shares: number;
+  saves: string[];
+  hashtags: string[];
+  views?: number;
+  completedViews?: number;
+  mentionUserIds?: string[];
+  collaborators?: Array<{
+    uid: string;
+    name: string;
+    username: string;
+  }>;
+  remixOf?: string | null;
+  scheduledFor?: { seconds?: number; nanoseconds?: number } | null;
+  visibility?: "public" | "subscribers" | "premium_group";
+  premiumGroupId?: string | null;
+  sponsored?: boolean;
+  sponsorLabel?: string | null;
+  autoCaption?: string | null;
+  translatedCaption?: string | null;
+  accessibilityLabel?: string | null;
+  aiHighlightAnalysis?: string | null;
+  voiceoverScript?: string | null;
+  thumbnailHint?: string | null;
+  clipStartSec?: number | null;
+  clipEndSec?: number | null;
+  watermarkEnabled?: boolean;
+  downloadProtected?: boolean;
+  rightClickProtected?: boolean;
+  questionPrompt?: string | null;
+  poll?: {
+    options: Array<{
+      label: string;
+      votes: string[];
+    }>;
+  } | null;
+  storagePath?: string;
+  originalPostId?: string | null;
+  author: {
+    name: string;
+    username: string;
+    avatar: string;
+    verified: boolean;
+    role?: string | null;
+  };
+}
+
+export interface PostComment {
+  id: string;
+  postId: string;
+  userId: string;
+  text: string;
+  parentCommentId?: string | null;
+  reactions?: Record<string, string[]>;
+  mentionUserIds?: string[];
+  createdAt?: { seconds?: number; nanoseconds?: number } | null;
+  author: {
+    name: string;
+    username: string;
+    avatar: string;
+  };
+}
+
+interface CreatePostInput {
+  caption: string;
+  sport: string;
+  file?: File | null;
+  contentType?: "post" | "reel";
+  postType?: "standard" | "poll" | "qa";
+  questionPrompt?: string;
+  pollOptions?: string[];
+  collaborators?: string[];
+  remixPostId?: string;
+  scheduledFor?: string;
+  visibility?: "public" | "subscribers" | "premium_group";
+  premiumGroupId?: string;
+  sponsored?: boolean;
+  sponsorLabel?: string;
+  autoCaption?: string;
+  translatedCaption?: string;
+  accessibilityLabel?: string;
+  aiHighlightAnalysis?: string;
+  voiceoverScript?: string;
+  thumbnailHint?: string;
+  clipStartSec?: number;
+  clipEndSec?: number;
+  watermarkEnabled?: boolean;
+  downloadProtected?: boolean;
+  rightClickProtected?: boolean;
+}
+
+type ListenerCleanup = () => void;
+
+let cachedViewerProfile:
+  | {
+      uid: string;
+      expiresAt: number;
+      value: Awaited<ReturnType<typeof getCurrentAuthorProfile>>;
+    }
+  | null = null;
+
+function assertFirebaseReady() {
+  if (!auth?.currentUser || !db) {
+    throw new Error("You must be signed in and Firebase must be configured.");
+  }
+}
+
+function extractHashtags(caption: string) {
+  const matches = caption.match(/#[a-z0-9_]+/gi) ?? [];
+  return Array.from(new Set(matches.map((tag) => tag.replace("#", "").toLowerCase())));
+}
+
+function extractMentionTokens(text: string) {
+  const matches = text.match(/@[a-z0-9_]+/gi) ?? [];
+  return Array.from(new Set(matches.map((token) => token.replace("@", "").toLowerCase())));
+}
+
+async function resolveMentionedUserIds(text: string): Promise<string[]> {
+  if (!db) {
+    return [];
+  }
+
+  const mentionTokens = extractMentionTokens(text);
+  if (mentionTokens.length === 0) {
+    return [];
+  }
+
+  const usersSnapshot = await getDocs(query(collection(db, "users"), limit(100)));
+  const matchedUserIds = usersSnapshot.docs
+    .map((docSnapshot: { id: string; data: () => Record<string, unknown> }) => {
+      const data = docSnapshot.data() as Record<string, unknown>;
+      const displayName = String(data.displayName ?? "").toLowerCase().replace(/\s+/g, "");
+      const username = docSnapshot.id.slice(0, 8).toLowerCase();
+      const explicitUsername = String(data.username ?? "").toLowerCase();
+      const matchesToken = mentionTokens.some(
+        (token) => token === username || token === explicitUsername || token === displayName
+      );
+      return matchesToken ? docSnapshot.id : null;
+    })
+    .filter((value: string | null): value is string => Boolean(value));
+
+  return Array.from(new Set(matchedUserIds));
+}
+
+async function resolveTaggedUsers(tokens: string[]): Promise<
+  Array<{ uid: string; name: string; username: string }>
+> {
+  if (!db) {
+    return [];
+  }
+
+  const normalizedTokens = tokens
+    .map((token) => token.trim().replace(/^@/, "").toLowerCase())
+    .filter(Boolean);
+
+  if (normalizedTokens.length === 0) {
+    return [];
+  }
+
+  const usersSnapshot = await getDocs(query(collection(db, "users"), limit(100)));
+  const matches = usersSnapshot.docs
+    .map((docSnapshot: { id: string; data: () => Record<string, unknown> }) => {
+      const data = docSnapshot.data() as Record<string, unknown>;
+      const displayName = String(data.displayName ?? "");
+      const displayNameSlug = displayName.toLowerCase().replace(/\s+/g, "");
+      const username = docSnapshot.id.slice(0, 8).toLowerCase();
+      const explicitUsername = String(data.username ?? "").toLowerCase();
+      const matched = normalizedTokens.some(
+        (token) =>
+          token === username ||
+          token === explicitUsername ||
+          token === displayNameSlug ||
+          token === docSnapshot.id.toLowerCase()
+      );
+
+      if (!matched) {
+        return null;
+      }
+
+      return {
+        uid: docSnapshot.id,
+        name: displayName || "HoopLink User",
+        username: `@${explicitUsername || username}`,
+      } as { uid: string; name: string; username: string };
+    })
+    .filter(
+      (
+        value: { uid: string; name: string; username: string } | null
+      ): value is { uid: string; name: string; username: string } => Boolean(value)
+    );
+
+  return Array.from(
+    new Map<string, { uid: string; name: string; username: string }>(
+      matches.map((item: { uid: string; name: string; username: string }) => [item.uid, item])
+    ).values()
+  );
+}
+
+function mapPost(id: string, data: Record<string, unknown>): FeedPost {
+  const author = (data.author as Record<string, unknown> | undefined) ?? {};
+
+  return {
+    id,
+    userId: String(data.userId ?? ""),
+    caption: String(data.caption ?? ""),
+    mediaUrl: String(data.mediaUrl ?? ""),
+    mediaType: data.mediaType === "video" ? "video" : "image",
+    contentType: data.contentType === "reel" ? "reel" : "post",
+    postType:
+      data.postType === "poll" || data.postType === "qa" ? data.postType : "standard",
+    sport: String(data.sport ?? ""),
+    createdAt:
+      (data.createdAt as { seconds?: number; nanoseconds?: number } | null | undefined) ?? null,
+    likes: Array.isArray(data.likes) ? (data.likes as string[]) : [],
+    commentsCount: Number(data.commentsCount ?? 0),
+    shares: Number(data.shares ?? 0),
+    saves: Array.isArray(data.saves) ? (data.saves as string[]) : [],
+    hashtags: Array.isArray(data.hashtags) ? (data.hashtags as string[]) : [],
+    views: Number(data.views ?? 0),
+    completedViews: Number(data.completedViews ?? 0),
+    mentionUserIds: Array.isArray(data.mentionUserIds) ? (data.mentionUserIds as string[]) : [],
+    collaborators: Array.isArray(data.collaborators)
+      ? (data.collaborators as Array<Record<string, unknown>>).map((collaborator) => ({
+          uid: String(collaborator.uid ?? ""),
+          name: String(collaborator.name ?? "HoopLink User"),
+          username: String(collaborator.username ?? "@player"),
+        }))
+      : [],
+    remixOf: data.remixOf ? String(data.remixOf) : null,
+    scheduledFor:
+      (data.scheduledFor as { seconds?: number; nanoseconds?: number } | null | undefined) ?? null,
+    visibility:
+      data.visibility === "subscribers" || data.visibility === "premium_group"
+        ? data.visibility
+        : "public",
+    premiumGroupId: data.premiumGroupId ? String(data.premiumGroupId) : null,
+    sponsored: data.sponsored === true,
+    sponsorLabel: data.sponsorLabel ? String(data.sponsorLabel) : null,
+    autoCaption: data.autoCaption ? String(data.autoCaption) : null,
+    translatedCaption: data.translatedCaption ? String(data.translatedCaption) : null,
+    accessibilityLabel: data.accessibilityLabel ? String(data.accessibilityLabel) : null,
+    aiHighlightAnalysis: data.aiHighlightAnalysis ? String(data.aiHighlightAnalysis) : null,
+    voiceoverScript: data.voiceoverScript ? String(data.voiceoverScript) : null,
+    thumbnailHint: data.thumbnailHint ? String(data.thumbnailHint) : null,
+    clipStartSec: typeof data.clipStartSec === "number" ? data.clipStartSec : null,
+    clipEndSec: typeof data.clipEndSec === "number" ? data.clipEndSec : null,
+    watermarkEnabled: data.watermarkEnabled === true,
+    downloadProtected: data.downloadProtected === true,
+    rightClickProtected: data.rightClickProtected === true,
+    questionPrompt: data.questionPrompt ? String(data.questionPrompt) : null,
+    poll:
+      data.poll && typeof data.poll === "object"
+        ? {
+            options: Array.isArray((data.poll as { options?: unknown[] }).options)
+              ? ((data.poll as { options?: Array<Record<string, unknown>> }).options ?? []).map(
+                  (option) => ({
+                    label: String(option.label ?? ""),
+                    votes: Array.isArray(option.votes) ? (option.votes as string[]) : [],
+                  })
+                )
+              : [],
+          }
+        : null,
+    storagePath: data.storagePath ? String(data.storagePath) : undefined,
+    originalPostId: data.originalPostId ? String(data.originalPostId) : null,
+    author: {
+      name: String(author.name ?? "HoopLink User"),
+      username: String(author.username ?? "@player"),
+      avatar: String(author.avatar ?? ""),
+      verified: Boolean(author.verified),
+      role: author.role ? String(author.role) : null,
+    },
+  };
+}
+
+function mapComment(id: string, data: Record<string, unknown>): PostComment {
+  const author = (data.author as Record<string, unknown> | undefined) ?? {};
+
+  return {
+    id,
+    postId: String(data.postId ?? ""),
+    userId: String(data.userId ?? ""),
+    text: String(data.text ?? ""),
+    parentCommentId: data.parentCommentId ? String(data.parentCommentId) : null,
+    reactions:
+      data.reactions && typeof data.reactions === "object"
+        ? Object.fromEntries(
+            Object.entries(data.reactions as Record<string, unknown>).map(([emoji, users]) => [
+              emoji,
+              Array.isArray(users) ? (users as string[]) : [],
+            ])
+          )
+        : {},
+    mentionUserIds: Array.isArray(data.mentionUserIds) ? (data.mentionUserIds as string[]) : [],
+    createdAt:
+      (data.createdAt as { seconds?: number; nanoseconds?: number } | null | undefined) ?? null,
+    author: {
+      name: String(author.name ?? "HoopLink User"),
+      username: String(author.username ?? "@player"),
+      avatar: String(author.avatar ?? ""),
+    },
+  };
+}
+
+async function getCurrentAuthorProfile() {
+  assertFirebaseReady();
+
+  const user = auth.currentUser;
+  const profileSnapshot = await getDoc(doc(db!, "users", user.uid));
+  const profile = profileSnapshot.exists()
+    ? (profileSnapshot.data() as Record<string, unknown>)
+    : null;
+  const role = (profile?.role as Record<string, unknown> | undefined) ?? {};
+
+  return {
+    profile,
+    author: {
+      name: user.displayName || String(profile?.displayName ?? "HoopLink User"),
+      username: `@${String(profile?.username ?? user.uid.slice(0, 8))}`,
+      avatar: user.photoURL || String(profile?.photoURL ?? ""),
+      verified: Boolean(profile?.verified),
+      role: role.type ? String(role.type) : null,
+    },
+    defaultSport: role.sport ? String(role.sport) : "",
+    following: Array.isArray(profile?.following) ? (profile?.following as string[]) : [],
+    blockedUsers: Array.isArray(profile?.blockedUsers) ? (profile?.blockedUsers as string[]) : [],
+  };
+}
+
+async function getCachedViewerProfile() {
+  if (!auth?.currentUser) {
+    return null;
+  }
+
+  const uid = auth.currentUser.uid;
+  const now = Date.now();
+  if (cachedViewerProfile && cachedViewerProfile.uid === uid && cachedViewerProfile.expiresAt > now) {
+    return cachedViewerProfile.value;
+  }
+
+  const value = await getCurrentAuthorProfile();
+  cachedViewerProfile = {
+    uid,
+    expiresAt: now + 30_000,
+    value,
+  };
+  return value;
+}
+
+async function incrementUserCounter(userId: string, field: "postsCount" | "reelsCount", amount: number) {
+  await setDoc(
+    doc(db!, "users", userId),
+    {
+      [field]: increment(amount),
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
+export async function createPost({
+  caption,
+  sport,
+  file,
+  contentType = "post",
+  postType = "standard",
+  questionPrompt = "",
+  pollOptions = [],
+  collaborators = [],
+  remixPostId,
+  scheduledFor = "",
+  visibility = "public",
+  premiumGroupId = "",
+  sponsored = false,
+  sponsorLabel = "",
+  autoCaption = "",
+  translatedCaption = "",
+  accessibilityLabel = "",
+  aiHighlightAnalysis = "",
+  voiceoverScript = "",
+  thumbnailHint = "",
+  clipStartSec,
+  clipEndSec,
+  watermarkEnabled = false,
+  downloadProtected = false,
+  rightClickProtected = false,
+}: CreatePostInput) {
+  assertFirebaseReady();
+
+  const user = auth.currentUser;
+  const { author, defaultSport } = await getCurrentAuthorProfile();
+  const resolvedSport = sport.trim() || defaultSport;
+
+  if (!resolvedSport) {
+    throw new Error("Add a sport before posting.");
+  }
+
+  const mediaType = file?.type.startsWith("video/") ? "video" : "image";
+  const uploadedMedia = file
+    ? await uploadToCloudinary(
+        file,
+        `hooplink/${contentType === "reel" ? "reels" : "posts"}/${user.uid}`
+      )
+    : null;
+  const mediaUrl = uploadedMedia?.url ?? "";
+  const trimmedCaption = caption.trim();
+  const mentionUserIds = await resolveMentionedUserIds(
+    [trimmedCaption, questionPrompt.trim()].filter(Boolean).join(" ")
+  );
+  const collaboratorRecords = await resolveTaggedUsers(collaborators);
+  const scheduledDate = scheduledFor.trim().length > 0 ? new Date(scheduledFor) : null;
+  const normalizedPollOptions =
+    postType === "poll"
+      ? pollOptions.map((option: string) => option.trim()).filter(Boolean)
+      : [];
+
+  if (postType === "poll" && normalizedPollOptions.length < 2) {
+    throw new Error("Polls need at least two options.");
+  }
+
+  await addDoc(collection(db!, "posts"), {
+    userId: user.uid,
+    caption: trimmedCaption,
+    mediaUrl,
+    mediaType,
+    contentType,
+    postType,
+    sport: resolvedSport,
+    likes: [],
+    commentsCount: 0,
+    shares: 0,
+    saves: [],
+    hashtags: extractHashtags(trimmedCaption),
+    views: 0,
+    completedViews: 0,
+    mentionUserIds,
+    collaborators: collaboratorRecords,
+    remixOf: remixPostId?.trim() || null,
+    scheduledFor:
+      scheduledDate && !Number.isNaN(scheduledDate.getTime()) && scheduledDate.getTime() > Date.now()
+        ? scheduledDate
+        : null,
+    visibility,
+    premiumGroupId: visibility === "premium_group" ? premiumGroupId.trim() || null : null,
+    sponsored,
+    sponsorLabel: sponsored ? sponsorLabel.trim() || "Sponsored" : null,
+    autoCaption: autoCaption.trim() || null,
+    translatedCaption: translatedCaption.trim() || null,
+    accessibilityLabel: accessibilityLabel.trim() || null,
+    aiHighlightAnalysis: aiHighlightAnalysis.trim() || null,
+    voiceoverScript: voiceoverScript.trim() || null,
+    thumbnailHint: thumbnailHint.trim() || null,
+    clipStartSec: typeof clipStartSec === "number" ? clipStartSec : null,
+    clipEndSec: typeof clipEndSec === "number" ? clipEndSec : null,
+    watermarkEnabled,
+    downloadProtected,
+    rightClickProtected,
+    questionPrompt: postType === "qa" ? questionPrompt.trim() || trimmedCaption : null,
+    poll:
+      postType === "poll"
+        ? {
+            options: normalizedPollOptions.map((label: string) => ({ label, votes: [] })),
+          }
+        : null,
+    author,
+    storagePath: uploadedMedia?.publicId ?? "",
+    createdAt: serverTimestamp(),
+  });
+
+  await Promise.all(
+    mentionUserIds
+      .filter((mentionedUserId) => mentionedUserId !== user.uid)
+      .map((mentionedUserId) =>
+        createNotification({
+          type: "mention",
+          recipientId: mentionedUserId,
+          actorId: user.uid,
+          actorName: author.name,
+          actorAvatar: author.avatar,
+          message: `${author.name} mentioned you in a post.`,
+        })
+      )
+  );
+
+  await Promise.all(
+    collaboratorRecords
+      .filter((collaborator) => collaborator.uid !== user.uid)
+      .map((collaborator) =>
+        createNotification({
+          type: "mention",
+          recipientId: collaborator.uid,
+          actorId: user.uid,
+          actorName: author.name,
+          actorAvatar: author.avatar,
+          message: `${author.name} tagged you as a collaborator on a post.`,
+        })
+      )
+  );
+
+  await incrementUserCounter(user.uid, contentType === "reel" ? "reelsCount" : "postsCount", 1);
+}
+
+export async function updatePost(postId: string, input: { caption: string; sport: string }) {
+  if (!auth?.currentUser || !db) {
+    throw new Error("You must be signed in to edit posts.");
+  }
+
+  const trimmedCaption = input.caption.trim();
+  await updateDoc(doc(db, "posts", postId), {
+    caption: trimmedCaption,
+    sport: input.sport.trim(),
+    hashtags: extractHashtags(trimmedCaption),
+    mentionUserIds: await resolveMentionedUserIds(trimmedCaption),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deletePost(postId: string) {
+  if (!auth?.currentUser || !db) {
+    throw new Error("You must be signed in to delete posts.");
+  }
+
+  const snapshot = await getDoc(doc(db, "posts", postId));
+  if (!snapshot.exists()) {
+    return;
+  }
+
+  const post = snapshot.data() as Record<string, unknown>;
+  if (String(post.userId ?? "") !== auth.currentUser.uid) {
+    throw new Error("You can only delete your own posts.");
+  }
+
+  await deleteDoc(doc(db, "posts", postId));
+  await incrementUserCounter(
+    auth.currentUser.uid,
+    post.contentType === "reel" ? "reelsCount" : "postsCount",
+    -1
+  );
+}
+
+export async function getCurrentUserSport() {
+  const result = await getCurrentAuthorProfile();
+  return result.defaultSport;
+}
+
+export async function togglePostLike(postId: string, hasLiked: boolean) {
+  if (!auth?.currentUser || !db) {
+    throw new Error("You must be signed in to like posts.");
+  }
+
+  const userId = auth.currentUser.uid;
+  const postSnapshot = await getDoc(doc(db, "posts", postId));
+  const post = postSnapshot.exists() ? (postSnapshot.data() as Record<string, unknown>) : null;
+
+  await updateDoc(doc(db, "posts", postId), {
+    likes: hasLiked ? arrayRemove(userId) : arrayUnion(userId),
+  });
+
+  if (!hasLiked && post) {
+    await createNotification({
+      type: "like",
+      recipientId: String(post.userId ?? ""),
+      actorId: userId,
+      actorName: auth.currentUser.displayName || "HoopLink User",
+      actorAvatar: auth.currentUser.photoURL || "",
+      message: `${auth.currentUser.displayName || "Someone"} liked your post.`,
+      postId,
+    });
+  }
+}
+
+export async function toggleSavePost(postId: string, isSaved: boolean) {
+  if (!auth?.currentUser || !db) {
+    throw new Error("You must be signed in to save posts.");
+  }
+
+  const userId = auth.currentUser.uid;
+  await updateDoc(doc(db, "posts", postId), {
+    saves: isSaved ? arrayRemove(userId) : arrayUnion(userId),
+  });
+
+  await setDoc(
+    doc(db, "users", userId),
+    {
+      savedPosts: isSaved ? arrayRemove(postId) : arrayUnion(postId),
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
+export async function repostPost(postId: string) {
+  if (!auth?.currentUser || !db) {
+    throw new Error("You must be signed in to repost.");
+  }
+
+  const snapshot = await getDoc(doc(db, "posts", postId));
+  if (!snapshot.exists()) {
+    throw new Error("Post not found.");
+  }
+
+  const post = mapPost(snapshot.id, snapshot.data() as Record<string, unknown>);
+  const { author } = await getCurrentAuthorProfile();
+
+  await addDoc(collection(db, "posts"), {
+    userId: auth.currentUser.uid,
+    caption: `Reposted: ${post.caption}`.trim(),
+    mediaUrl: post.mediaUrl,
+    mediaType: post.mediaType,
+    contentType: post.contentType,
+    sport: post.sport,
+    likes: [],
+    commentsCount: 0,
+    shares: 0,
+    saves: [],
+    hashtags: post.hashtags,
+    views: 0,
+    completedViews: 0,
+    author,
+    originalPostId: postId,
+    createdAt: serverTimestamp(),
+  });
+
+  await updateDoc(doc(db, "posts", postId), {
+    shares: increment(1),
+  });
+
+  await incrementUserCounter(
+    auth.currentUser.uid,
+    post.contentType === "reel" ? "reelsCount" : "postsCount",
+    1
+  );
+
+  await createNotification({
+    type: "repost",
+    recipientId: post.userId,
+    actorId: auth.currentUser.uid,
+    actorName: auth.currentUser.displayName || "HoopLink User",
+    actorAvatar: auth.currentUser.photoURL || "",
+    message: `${auth.currentUser.displayName || "Someone"} reposted your ${post.contentType}.`,
+    postId,
+  });
+}
+
+export async function togglePollVote(postId: string, optionIndex: number) {
+  if (!auth?.currentUser || !db) {
+    throw new Error("You must be signed in to vote.");
+  }
+
+  const snapshot = await getDoc(doc(db, "posts", postId));
+  if (!snapshot.exists()) {
+    throw new Error("Post not found.");
+  }
+
+  const post = snapshot.data() as Record<string, unknown>;
+  const pollOptions = Array.isArray((post.poll as { options?: unknown[] } | undefined)?.options)
+    ? (((post.poll as { options?: Array<Record<string, unknown>> }).options ?? []).map((option) => ({
+        label: String(option.label ?? ""),
+        votes: Array.isArray(option.votes) ? (option.votes as string[]) : [],
+      })) as Array<{ label: string; votes: string[] }>)
+    : [];
+
+  const nextPollOptions = pollOptions.map((option, index) => {
+    const withoutCurrentUser = option.votes.filter((uid) => uid !== auth.currentUser?.uid);
+    return {
+      ...option,
+      votes:
+        index === optionIndex
+          ? option.votes.includes(auth.currentUser!.uid)
+            ? withoutCurrentUser
+            : [...withoutCurrentUser, auth.currentUser!.uid]
+          : withoutCurrentUser,
+    };
+  });
+
+  await updateDoc(doc(db, "posts", postId), {
+    poll: { options: nextPollOptions },
+  });
+
+  if (String(post.userId ?? "") !== auth.currentUser.uid) {
+    await createNotification({
+      type: "poll_vote",
+      recipientId: String(post.userId ?? ""),
+      actorId: auth.currentUser.uid,
+      actorName: auth.currentUser.displayName || "HoopLink User",
+      actorAvatar: auth.currentUser.photoURL || "",
+      message: `${auth.currentUser.displayName || "Someone"} voted in your poll.`,
+      postId,
+    });
+  }
+}
+
+export async function recordPostView(postId: string, completed = false) {
+  if (!db) {
+    return;
+  }
+
+  await recordViewedPost(postId);
+  await updateDoc(doc(db, "posts", postId), {
+    views: increment(1),
+    ...(completed ? { completedViews: increment(1) } : {}),
+  });
+}
+
+export async function addPostComment(postId: string, text: string, parentCommentId?: string) {
+  if (!auth?.currentUser || !db) {
+    throw new Error("You must be signed in to comment.");
+  }
+
+  const trimmedText = text.trim();
+  if (!trimmedText) {
+    throw new Error("Comment cannot be empty.");
+  }
+
+  const { author } = await getCurrentAuthorProfile();
+  const postSnapshot = await getDoc(doc(db, "posts", postId));
+  const post = postSnapshot.exists() ? (postSnapshot.data() as Record<string, unknown>) : null;
+
+  await addDoc(collection(db, "comments"), {
+    postId,
+    userId: auth.currentUser.uid,
+    text: trimmedText,
+    parentCommentId: parentCommentId ?? null,
+    mentionUserIds: await resolveMentionedUserIds(trimmedText),
+    reactions: {},
+    author: {
+      name: author.name,
+      username: author.username,
+      avatar: author.avatar,
+    },
+    createdAt: serverTimestamp(),
+  });
+
+  await updateDoc(doc(db, "posts", postId), {
+    commentsCount: increment(1),
+  });
+
+  if (post) {
+    await createNotification({
+      type: "comment",
+      recipientId: String(post.userId ?? ""),
+      actorId: auth.currentUser.uid,
+      actorName: author.name,
+      actorAvatar: author.avatar,
+      message: `${author.name} commented on your post.`,
+      postId,
+    });
+  }
+
+  const mentionedUserIds = await resolveMentionedUserIds(trimmedText);
+  await Promise.all(
+    mentionedUserIds
+      .filter((mentionedUserId) => mentionedUserId !== auth.currentUser?.uid)
+      .map((mentionedUserId) =>
+        createNotification({
+          type: "mention",
+          recipientId: mentionedUserId,
+          actorId: auth.currentUser!.uid,
+          actorName: author.name,
+          actorAvatar: author.avatar,
+          message: `${author.name} mentioned you in a comment.`,
+          postId,
+        })
+      )
+  );
+}
+
+export async function toggleCommentReaction(commentId: string, emoji: string) {
+  if (!auth?.currentUser || !db) {
+    throw new Error("You must be signed in to react.");
+  }
+
+  const snapshot = await getDoc(doc(db, "comments", commentId));
+  if (!snapshot.exists()) {
+    throw new Error("Comment not found.");
+  }
+
+  const comment = snapshot.data() as Record<string, unknown>;
+  const reactions = (comment.reactions as Record<string, unknown> | undefined) ?? {};
+  const currentUsers = Array.isArray(reactions[emoji]) ? (reactions[emoji] as string[]) : [];
+  const nextUsers = currentUsers.includes(auth.currentUser.uid)
+    ? currentUsers.filter((uid) => uid !== auth.currentUser?.uid)
+    : [...currentUsers, auth.currentUser.uid];
+
+  await setDoc(
+    doc(db, "comments", commentId),
+    {
+      reactions: {
+        ...reactions,
+        [emoji]: nextUsers,
+      },
+    },
+    { merge: true }
+  );
+}
+
+function scorePosts(posts: FeedPost[], following: string[], preferredSport: string) {
+  return [...posts].sort((a, b) => {
+    const aScore =
+      (following.includes(a.userId) ? 4 : 0) +
+      (preferredSport && a.sport.toLowerCase() === preferredSport.toLowerCase() ? 2 : 0) +
+      (a.contentType === "reel" ? 1 : 0);
+    const bScore =
+      (following.includes(b.userId) ? 4 : 0) +
+      (preferredSport && b.sport.toLowerCase() === preferredSport.toLowerCase() ? 2 : 0) +
+      (b.contentType === "reel" ? 1 : 0);
+
+    if (aScore !== bScore) {
+      return bScore - aScore;
+    }
+
+    const aTime = a.createdAt?.seconds ?? 0;
+    const bTime = b.createdAt?.seconds ?? 0;
+    return bTime - aTime;
+  });
+}
+
+function isVisiblePost(post: FeedPost) {
+  const scheduledSeconds = post.scheduledFor?.seconds ?? 0;
+  return !scheduledSeconds || scheduledSeconds <= Math.floor(Date.now() / 1000);
+}
+
+function canAccessPost(
+  post: FeedPost,
+  viewerProfile: {
+    profile?: Record<string, unknown> | null;
+  } | null
+) {
+  if (post.visibility === "public") {
+    return true;
+  }
+
+  const subscribedCreators = Array.isArray(viewerProfile?.profile?.subscribedCreators)
+    ? (viewerProfile?.profile?.subscribedCreators as string[])
+    : [];
+  if (post.visibility === "subscribers") {
+    return subscribedCreators.includes(post.userId) || auth?.currentUser?.uid === post.userId;
+  }
+
+  const premiumGroupIds = Array.isArray(viewerProfile?.profile?.premiumGroupIds)
+    ? (viewerProfile?.profile?.premiumGroupIds as string[])
+    : [];
+  return premiumGroupIds.includes(post.premiumGroupId || "") || auth?.currentUser?.uid === post.userId;
+}
+
+export function subscribeToFeed(
+  callback: (posts: FeedPost[]) => void,
+  onError?: (error: Error) => void
+): ListenerCleanup {
+  if (!db) {
+    callback([]);
+    return () => undefined;
+  }
+
+  const feedQuery = query(
+    collection(db, "posts"),
+    where("contentType", "==", "post"),
+    orderBy("createdAt", "desc"),
+    limit(24)
+  );
+
+  let stopped = false;
+
+  const unsubscribe = onSnapshot(
+    feedQuery,
+    async (snapshot: { docs: Array<{ id: string; data: () => Record<string, unknown> }> }) => {
+      try {
+        const rawPosts = snapshot.docs.map((postDoc) => mapPost(postDoc.id, postDoc.data()));
+        const profile = await getCachedViewerProfile();
+        const preferredSport = profile?.defaultSport ?? "";
+        const following = profile?.following ?? [];
+        const blockedUsers = profile?.blockedUsers ?? [];
+
+        if (!stopped) {
+          callback(
+            scorePosts(
+              rawPosts.filter(
+                (post) =>
+                  post.contentType === "post" &&
+                  !blockedUsers.includes(post.userId) &&
+                  isVisiblePost(post) &&
+                  canAccessPost(post, profile)
+              ),
+              following,
+              preferredSport
+            )
+          );
+        }
+      } catch (error) {
+        onError?.(error instanceof Error ? error : new Error("Could not load the feed."));
+      }
+    },
+    (error: Error) => {
+      onError?.(error);
+    }
+  );
+
+  return () => {
+    stopped = true;
+    unsubscribe();
+  };
+}
+
+export function subscribeToReels(
+  callback: (posts: FeedPost[]) => void,
+  onError?: (error: Error) => void
+): ListenerCleanup {
+  if (!db) {
+    callback([]);
+    return () => undefined;
+  }
+
+  const reelsQuery = query(
+    collection(db, "posts"),
+    where("contentType", "==", "reel"),
+    orderBy("createdAt", "desc"),
+    limit(24)
+  );
+
+  let stopped = false;
+
+  const unsubscribe = onSnapshot(
+    reelsQuery,
+    async (snapshot: { docs: Array<{ id: string; data: () => Record<string, unknown> }> }) => {
+      try {
+        const rawPosts = snapshot.docs
+          .map((postDoc) => mapPost(postDoc.id, postDoc.data()));
+        const profile = await getCachedViewerProfile();
+        const preferredSport = profile?.defaultSport ?? "";
+        const following = profile?.following ?? [];
+        const blockedUsers = profile?.blockedUsers ?? [];
+
+        if (!stopped) {
+          callback(
+            scorePosts(
+              rawPosts.filter((post) => !blockedUsers.includes(post.userId) && isVisiblePost(post) && canAccessPost(post, profile)),
+              following,
+              preferredSport
+            )
+          );
+        }
+      } catch (error) {
+        if (!stopped) {
+          onError?.(error instanceof Error ? error : new Error("Could not load reels."));
+          callback([]);
+        }
+      }
+    },
+    (error: Error) => {
+      onError?.(error);
+    }
+  );
+
+  return () => {
+    stopped = true;
+    unsubscribe();
+  };
+}
+
+export function subscribeToUserPosts(
+  userId: string,
+  callback: (posts: FeedPost[]) => void
+): ListenerCleanup {
+  if (!db) {
+    callback([]);
+    return () => undefined;
+  }
+
+  const postsQuery = query(
+    collection(db, "posts"),
+    where("userId", "==", userId)
+  );
+
+  let stopped = false;
+
+  const unsubscribe = onSnapshot(
+    postsQuery,
+    async (snapshot: { docs: Array<{ id: string; data: () => Record<string, unknown> }> }) => {
+      const profile = await getCachedViewerProfile();
+      const blockedUsers = profile?.blockedUsers ?? [];
+      const filteredPosts = snapshot.docs
+        .map((postDoc) => mapPost(postDoc.id, postDoc.data()))
+        .filter((post) => !blockedUsers.includes(post.userId))
+        .filter(isVisiblePost)
+        .filter((post) => canAccessPost(post, profile))
+        .sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+
+      if (!stopped) {
+        callback(filteredPosts);
+      }
+    }
+  );
+
+  return () => {
+    stopped = true;
+    unsubscribe();
+  };
+}
+
+export function subscribeToTopicPosts(
+  hashtag: string,
+  callback: (posts: FeedPost[]) => void
+): ListenerCleanup {
+  if (!db) {
+    callback([]);
+    return () => undefined;
+  }
+
+  const postsQuery = query(
+    collection(db, "posts"),
+    where("hashtags", "array-contains", hashtag.toLowerCase()),
+    orderBy("createdAt", "desc"),
+    limit(25)
+  );
+
+  let stopped = false;
+
+  const unsubscribe = onSnapshot(
+    postsQuery,
+    async (snapshot: { docs: Array<{ id: string; data: () => Record<string, unknown> }> }) => {
+      const profile = await getCachedViewerProfile();
+      const blockedUsers = profile?.blockedUsers ?? [];
+      const filteredPosts = snapshot.docs
+        .map((postDoc) => mapPost(postDoc.id, postDoc.data()))
+        .filter((post) => !blockedUsers.includes(post.userId))
+        .filter(isVisiblePost)
+        .filter((post) => canAccessPost(post, profile));
+
+      if (!stopped) {
+        callback(filteredPosts);
+      }
+    }
+  );
+
+  return () => {
+    stopped = true;
+    unsubscribe();
+  };
+}
+
+export async function searchPosts(searchTerm: string) {
+  if (!db) {
+    return [];
+  }
+
+  const snapshot = await getDocs(query(collection(db, "posts"), limit(50)));
+  const normalized = searchTerm.trim().toLowerCase();
+  const profile = await getCachedViewerProfile();
+  const blockedUsers = profile?.blockedUsers ?? [];
+
+  return snapshot.docs
+    .map((docSnapshot: { id: string; data: () => Record<string, unknown> }) =>
+      mapPost(docSnapshot.id, docSnapshot.data() as Record<string, unknown>)
+    )
+    .filter((post: FeedPost) => !blockedUsers.includes(post.userId))
+    .filter(isVisiblePost)
+    .filter((post: FeedPost) => canAccessPost(post, profile))
+    .filter((post: FeedPost) => {
+      if (!normalized) {
+        return true;
+      }
+
+      const haystack = [post.caption, post.sport, post.author.name, ...post.hashtags]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(normalized);
+    });
+}
+
+export async function getPostsByIds(postIds: string[]) {
+  if (!db || postIds.length === 0) {
+    return [];
+  }
+
+  const profile = await getCachedViewerProfile();
+  const blockedUsers = profile?.blockedUsers ?? [];
+
+  const snapshots = await Promise.all(
+    postIds.map(async (postId) => {
+      const snapshot = await getDoc(doc(db, "posts", postId));
+      if (!snapshot.exists()) {
+        return null;
+      }
+
+      return mapPost(snapshot.id, snapshot.data() as Record<string, unknown>);
+    })
+  );
+
+  const order = new Map(postIds.map((id, index) => [id, index]));
+
+  return snapshots
+    .filter((post): post is FeedPost => Boolean(post))
+    .filter((post) => !blockedUsers.includes(post.userId))
+    .filter(isVisiblePost)
+    .filter((post) => canAccessPost(post, profile))
+    .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+}
+
+export function subscribeToComments(
+  postId: string,
+  callback: (comments: PostComment[]) => void
+): ListenerCleanup {
+  if (!db) {
+    callback([]);
+    return () => undefined;
+  }
+
+  const commentsQuery = query(
+    collection(db, "comments"),
+    where("postId", "==", postId),
+    orderBy("createdAt", "desc"),
+    limit(10)
+  );
+
+  return onSnapshot(
+    commentsQuery,
+    (snapshot: { docs: Array<{ id: string; data: () => Record<string, unknown> }> }) => {
+      callback(snapshot.docs.map((commentDoc) => mapComment(commentDoc.id, commentDoc.data())));
+    }
+  );
+}
+
+export function formatTimeAgo(createdAt?: { seconds?: number } | null) {
+  if (!createdAt?.seconds) {
+    return "Just now";
+  }
+
+  const diffMs = Date.now() - createdAt.seconds * 1000;
+  const diffMinutes = Math.max(1, Math.floor(diffMs / 60000));
+
+  if (diffMinutes < 60) {
+    return `${diffMinutes}m`;
+  }
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) {
+    return `${diffHours}h`;
+  }
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) {
+    return `${diffDays}d`;
+  }
+
+  const diffWeeks = Math.floor(diffDays / 7);
+  return `${diffWeeks}w`;
+}
