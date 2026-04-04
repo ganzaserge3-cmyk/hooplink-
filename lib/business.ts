@@ -570,8 +570,8 @@ export async function getDiscoverableProviders(searchTerm = "", locationFilter =
         offers,
       } satisfies DiscoverableProviderRecord;
     })
-    .filter((provider) => provider.offers.length > 0)
-    .filter((provider) => {
+    .filter((provider: DiscoverableProviderRecord) => provider.offers.length > 0)
+    .filter((provider: DiscoverableProviderRecord) => {
       const haystack = [
         provider.displayName,
         provider.roleLabel,
