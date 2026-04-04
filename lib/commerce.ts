@@ -16,6 +16,11 @@ import {
 import { auth, db } from "@/lib/firebase";
 import { createNotification } from "@/lib/notifications";
 
+type FirestoreDocSnapshot = {
+  id: string;
+  data: () => Record<string, unknown>;
+};
+
 export interface BrandCampaignRecord {
   id: string;
   ownerId: string;
@@ -282,7 +287,7 @@ export async function getOpenBrandCampaigns() {
   }
 
   return snapshot.docs
-    .map((docSnapshot) => {
+    .map((docSnapshot: FirestoreDocSnapshot) => {
       const data = docSnapshot.data() as Record<string, unknown>;
       return {
         id: docSnapshot.id,
@@ -297,7 +302,7 @@ export async function getOpenBrandCampaigns() {
         createdAt: mapTimestamp(data, "createdAt"),
       } satisfies BrandCampaignRecord;
     })
-    .filter((campaign) => campaign.active)
+    .filter((campaign: BrandCampaignRecord) => campaign.active)
     .sort((left, right) => {
       const leftSeconds = left.createdAt?.seconds ?? 0;
       const rightSeconds = right.createdAt?.seconds ?? 0;
@@ -319,7 +324,7 @@ export async function getOwnedBrandCampaigns() {
   );
 
   return snapshot.docs
-    .map((docSnapshot) => {
+    .map((docSnapshot: FirestoreDocSnapshot) => {
       const data = docSnapshot.data() as Record<string, unknown>;
       return {
         id: docSnapshot.id,
@@ -968,7 +973,7 @@ export async function getCurrentUserCommissionRecords() {
         createdAt: mapTimestamp(data, "createdAt"),
       } satisfies CommissionRecord;
     })
-    .filter((entry) => entry.ownerId === auth!.currentUser!.uid)
+    .filter((entry: CommissionRecord) => entry.ownerId === auth!.currentUser!.uid)
     .sort(compareCreatedAtDescending)
     .slice(0, 50);
 }
