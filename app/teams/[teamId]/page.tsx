@@ -315,6 +315,10 @@ function TeamDetailsContent({ teamId }: { teamId: string }) {
   );
 
   const saveWorkspaceMetadata = async () => {
+    if (!team) {
+      return;
+    }
+
     await updateTeamWorkspace(team.id, {
       inviteCode: workspaceMeta.inviteCode.trim() || team.id.slice(0, 8).toUpperCase(),
       codeOfConduct: workspaceMeta.codeOfConduct.trim(),
@@ -332,6 +336,10 @@ function TeamDetailsContent({ teamId }: { teamId: string }) {
   };
 
   const saveAdvancedWorkspaceMetadata = async () => {
+    if (!team) {
+      return;
+    }
+
     const nextValues = Object.fromEntries(
       ADVANCED_LIST_FIELDS.map(({ key }) => [
         key,
