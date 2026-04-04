@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { AuthProvider } from "@/components/AuthProvider";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -86,7 +86,7 @@ function TravelLegacyPageContent() {
   const [hoursForm, setHoursForm] = useState({ participantName: "", programName: "", hours: "5" });
   const [advancedTravelOps, setAdvancedTravelOps] = useState<Record<string, string[]>>({});
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     setLoading(true);
     try {
       const [nextSnapshot, travelOpsProfile] = await Promise.all([
@@ -101,11 +101,11 @@ function TravelLegacyPageContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [teamId]);
 
   useEffect(() => {
     void refresh();
-  }, []);
+  }, [refresh]);
 
   const submit = async (action: () => Promise<void>, message: string, reset?: () => void) => {
     await action();

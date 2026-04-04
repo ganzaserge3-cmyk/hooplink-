@@ -20,6 +20,7 @@ interface StoredProfile {
   uid?: string;
   displayName?: string;
   username?: string;
+  location?: string;
   photoURL?: string;
   coverPhotoURL?: string;
   profileTheme?: string;
@@ -173,6 +174,7 @@ function getVerifiedRoleLabel(role?: string) {
 
 function ProfilePageContent() {
   const { user } = useAuthContext();
+  const currentUserId = user?.uid ?? "";
   const [profile, setProfile] = useState<StoredProfile | null>(null);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -264,11 +266,11 @@ function ProfilePageContent() {
     },
   ];
 
-  const profileUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/profile/${user.uid}`;
-  const publicResumeUrl = `/resume/${user.uid}`;
-  const embedProfileCode = `<iframe src="${typeof window !== "undefined" ? window.location.origin : ""}/embed/profile/${user.uid}" width="420" height="240" style="border:0;border-radius:16px;" loading="lazy"></iframe>`;
-  const embedHighlightsCode = `<iframe src="${typeof window !== "undefined" ? window.location.origin : ""}/embed/highlights/${user.uid}" width="720" height="420" style="border:0;border-radius:16px;" loading="lazy"></iframe>`;
-  const shareCardText = `${user.displayName || profile?.displayName || "HoopLink User"}\n${profile?.identity?.tagline || profile?.role?.bio || ""}\n${profileUrl}`;
+  const profileUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/profile/${currentUserId}`;
+  const publicResumeUrl = `/resume/${currentUserId}`;
+  const embedProfileCode = `<iframe src="${typeof window !== "undefined" ? window.location.origin : ""}/embed/profile/${currentUserId}" width="420" height="240" style="border:0;border-radius:16px;" loading="lazy"></iframe>`;
+  const embedHighlightsCode = `<iframe src="${typeof window !== "undefined" ? window.location.origin : ""}/embed/highlights/${currentUserId}" width="720" height="420" style="border:0;border-radius:16px;" loading="lazy"></iframe>`;
+  const shareCardText = `${user?.displayName || profile?.displayName || "HoopLink User"}\n${profile?.identity?.tagline || profile?.role?.bio || ""}\n${profileUrl}`;
 
   const quickAccessLinks = [
     { href: "/analytics", label: "Analytics", icon: LineChart },
@@ -330,7 +332,7 @@ function ProfilePageContent() {
                       </Badge>
                     ) : null}
                   </div>
-                  <p className="text-sm text-muted-foreground">@{profile?.username || user.uid.slice(0, 8)}</p>
+                  <p className="text-sm text-muted-foreground">@{profile?.username || currentUserId.slice(0, 8)}</p>
                   {profile?.profileCommunity?.nickname ? (
                     <p className="text-xs text-muted-foreground">Also known as {profile.profileCommunity.nickname}</p>
                   ) : null}

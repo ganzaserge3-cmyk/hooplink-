@@ -129,7 +129,7 @@ function MarketplacePageContent() {
                   <div key={listing.id} className="rounded-2xl border p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">{listing.type.replaceAll("_", " ")}</p>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">{listing.type.split("_").join(" ")}</p>
                         <h3 className="font-semibold">{listing.title}</h3>
                       </div>
                       <span className="rounded-full bg-muted px-3 py-1 text-xs">{listing.priceLabel || "Request pricing"}</span>

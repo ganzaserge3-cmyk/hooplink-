@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { AuthProvider, useAuthContext } from "@/components/AuthProvider";
@@ -205,7 +205,7 @@ function TeamDetailsContent({ teamId }: { teamId: string }) {
     periodLabel: string;
   }>>({});
 
-  const refreshTeamData = async () => {
+  const refreshTeamData = useCallback(async () => {
     const [nextTeam, nextEvents, nextPosts, nextTryouts, nextProfiles, nextRooms, nextGallery, nextLiveScores, nextPracticePlans, nextPlaybookBoards, nextWorkspace] = await Promise.all([
       getTeam(teamId),
       getTeamEvents(teamId),
@@ -281,11 +281,11 @@ function TeamDetailsContent({ teamId }: { teamId: string }) {
       );
       setStaffNotesByMember(Object.fromEntries(notesEntries));
     }
-  };
+  }, [teamId]);
 
   useEffect(() => {
     void refreshTeamData();
-  }, [teamId]);
+  }, [refreshTeamData]);
 
   useEffect(() => {
     if (!activeRoomId) {

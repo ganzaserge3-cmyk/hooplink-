@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, ReactNode } from "react";
+import { createContext, useContext, ReactNode, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
 interface AuthUser {
@@ -18,17 +18,11 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const existingContext = useContext(AuthContext);
-  if (existingContext) {
-    return <>{children}</>;
-  }
-
   const { user, loading } = useAuth();
+  const value = useMemo(() => ({ user, loading }), [loading, user]);
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
   );
 }
 

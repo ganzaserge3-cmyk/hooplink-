@@ -209,18 +209,6 @@ function FeedPageContent() {
     return () => window.clearTimeout(timeout);
   }, [shareMessage]);
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-primary" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
-
   const handleLike = async (postId: string, hasLiked: boolean) => {
     setPendingPostId(postId);
     try {
@@ -290,6 +278,7 @@ function FeedPageContent() {
     const following = new Set<string>(followingIds);
     const normalizedLocation = currentUserLocation.trim().toLowerCase();
     const normalizedTeam = currentUserTeam.trim().toLowerCase();
+    const currentUserId = user?.uid ?? "";
 
     return posts.filter((post) => {
       if (feedView === "following" && !following.has(post.userId)) {
@@ -324,7 +313,7 @@ function FeedPageContent() {
         return false;
       }
 
-      if (feedView === "saved" && !post.saves.includes(user.uid)) {
+      if (feedView === "saved" && (!currentUserId || !post.saves.includes(currentUserId))) {
         return false;
       }
 
@@ -364,8 +353,20 @@ function FeedPageContent() {
     posts,
     selectedSport,
     selectedTopic,
-    user.uid,
+    user?.uid,
   ]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   const handleTopicFollow = async (topic: string) => {
     setPendingTopic(topic);
