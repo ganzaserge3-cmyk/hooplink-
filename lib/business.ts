@@ -1,12 +1,14 @@
 import {
   addDoc,
   collection,
+  type DocumentData,
   doc,
   getDoc,
   getDocs,
   limit,
   onSnapshot,
   orderBy,
+  type QueryDocumentSnapshot,
   query,
   serverTimestamp,
   setDoc,
@@ -154,6 +156,7 @@ function compareCreatedAtDescending<
 }
 
 type ListenerCleanup = () => void;
+type FirestoreDocSnapshot = QueryDocumentSnapshot<DocumentData>;
 
 const defaultOffer: BusinessOffer = {
   enabled: false,
@@ -504,7 +507,7 @@ export async function getIncomingBookingWaitlist(hostId: string) {
   }
 
   return snapshot.docs
-    .map((docSnapshot) => {
+    .map((docSnapshot: FirestoreDocSnapshot) => {
       const data = docSnapshot.data() as Record<string, unknown>;
       return {
         id: docSnapshot.id,
@@ -539,7 +542,7 @@ export async function getDiscoverableProviders(searchTerm = "", locationFilter =
   const normalizedLocation = locationFilter.trim().toLowerCase();
 
   return snapshot.docs
-    .map((docSnapshot) => {
+    .map((docSnapshot: FirestoreDocSnapshot) => {
       const data = docSnapshot.data() as Record<string, unknown>;
       const businessProfile = mapBusinessProfile(data);
       const offers = (["training", "consultation", "facility", "camp", "tryout"] as BookingServiceType[])
@@ -764,7 +767,7 @@ export function subscribeToWaitlistEntries(
   const waitlistQuery = query(collection(db, "waitlist"), orderBy("createdAt", "desc"), limit(100));
   return onSnapshot(waitlistQuery, (snapshot) => {
     callback(
-      snapshot.docs.map((docSnapshot) => {
+      snapshot.docs.map((docSnapshot: FirestoreDocSnapshot) => {
         const data = docSnapshot.data() as Record<string, unknown>;
         return {
           id: docSnapshot.id,
