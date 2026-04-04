@@ -528,7 +528,7 @@ export async function getIncomingBookingWaitlist(hostId: string) {
         createdAt: mapTimestamp(data, "createdAt"),
       } satisfies BookingWaitlistEntryRecord;
     })
-    .filter((entry) => entry.hostId === hostId)
+    .filter((entry: BookingWaitlistEntryRecord) => entry.hostId === hostId)
     .sort(compareCreatedAtDescending)
     .slice(0, 50);
 }
