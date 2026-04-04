@@ -641,7 +641,7 @@ export function subscribeToIncomingBookings(
           return;
         }
 
-        void getDocs(query(collection(db, "bookings"), limit(150))).then((snapshot) => {
+        void getDocs(query(collection(db, "bookings"), limit(150))).then((snapshot: FirestoreQuerySnapshot) => {
           callback(
             mapBookings(
               snapshot.docs as Array<{ id: string; data: () => Record<string, unknown> }>
@@ -656,7 +656,7 @@ export function subscribeToIncomingBookings(
       return () => undefined;
     }
 
-    void getDocs(query(collection(db, "bookings"), limit(150))).then((snapshot) => {
+    void getDocs(query(collection(db, "bookings"), limit(150))).then((snapshot: FirestoreQuerySnapshot) => {
       callback(
         mapBookings(
           snapshot.docs as Array<{ id: string; data: () => Record<string, unknown> }>
@@ -705,7 +705,7 @@ export function subscribeToOutgoingBookings(
           return;
         }
 
-        void getDocs(query(collection(db, "bookings"), limit(150))).then((snapshot) => {
+        void getDocs(query(collection(db, "bookings"), limit(150))).then((snapshot: FirestoreQuerySnapshot) => {
           callback(
             mapBookings(
               snapshot.docs as Array<{ id: string; data: () => Record<string, unknown> }>
@@ -720,7 +720,7 @@ export function subscribeToOutgoingBookings(
       return () => undefined;
     }
 
-    void getDocs(query(collection(db, "bookings"), limit(150))).then((snapshot) => {
+    void getDocs(query(collection(db, "bookings"), limit(150))).then((snapshot: FirestoreQuerySnapshot) => {
       callback(
         mapBookings(
           snapshot.docs as Array<{ id: string; data: () => Record<string, unknown> }>
