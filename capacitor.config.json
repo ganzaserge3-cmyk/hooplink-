@@ -1,0 +1,20 @@
+{
+  "appId": "com.hooplink.app",
+  "appName": "HoopLink",
+  "webDir": "public",
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "https://your-hooplink-domain.com",
+    "cleartext": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "backgroundColor": "#0c1220",
+      "showSpinner": false
+    },
+    "Keyboard": {
+      "resize": "body"
+    }
+  }
+}
