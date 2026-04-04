@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Oxanium } from "next/font/google";
+import { Inter, Pirata_One } from "next/font/google";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
 import Navbar from "@/components/Navbar";
@@ -8,7 +8,7 @@ import ThemeSync from "@/components/ThemeSync";
 import { AuthProvider } from "@/components/AuthProvider";
 
 const inter = Inter({ subsets: ["latin"] });
-const oxanium = Oxanium({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--font-brand" });
+const brand = Pirata_One({ subsets: ["latin"], weight: "400", variable: "--font-brand" });
 
 export const metadata: Metadata = {
   title: "HoopLink - Sports Social Media",
@@ -33,7 +33,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.className} ${oxanium.variable} bg-background text-foreground`}>
+      <body className={`${inter.className} ${brand.variable} bg-background text-foreground`}>
         <AuthProvider>
           <PWARegistrar />
           <ThemeSync />
