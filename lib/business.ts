@@ -105,6 +105,11 @@ export interface DiscoverableProviderRecord {
   }>;
 }
 
+type OfferCandidate = {
+  type: BookingServiceType;
+  offer: BusinessOffer;
+};
+
 export interface BookingWaitlistEntryRecord {
   id: string;
   hostId: string;
@@ -547,9 +552,9 @@ export async function getDiscoverableProviders(searchTerm = "", locationFilter =
       const data = docSnapshot.data() as Record<string, unknown>;
       const businessProfile = mapBusinessProfile(data);
       const offers = (["training", "consultation", "facility", "camp", "tryout"] as BookingServiceType[])
-        .map((type) => ({ type, offer: getOfferFromProfile(businessProfile, type) }))
-        .filter(({ offer }) => offer.enabled)
-        .map(({ type, offer }) => ({
+        .map((type: BookingServiceType): OfferCandidate => ({ type, offer: getOfferFromProfile(businessProfile, type) }))
+        .filter(({ offer }: OfferCandidate) => offer.enabled)
+        .map(({ type, offer }: OfferCandidate) => ({
           type,
           title: offer.title || type,
           priceLabel: offer.priceLabel,
@@ -613,8 +618,9 @@ export function subscribeToIncomingBookings(
 
   const mapBookings = (docs: Array<{ id: string; data: () => Record<string, unknown> }>) =>
     docs
-      .map((docSnapshot) => mapBooking(docSnapshot.id, docSnapshot.data() as Record<string, unknown>))
-      .filter((booking) => booking.hostId === hostId)
+      .map((docSnapshot: { id: string; data: () => Record<string, unknown> }) =>
+        mapBooking(docSnapshot.id, docSnapshot.data() as Record<string, unknown>))
+      .filter((booking: BookingRequestRecord) => booking.hostId === hostId)
       .sort(compareCreatedAtDescending)
       .slice(0, 50);
 
@@ -676,8 +682,9 @@ export function subscribeToOutgoingBookings(
 
   const mapBookings = (docs: Array<{ id: string; data: () => Record<string, unknown> }>) =>
     docs
-      .map((docSnapshot) => mapBooking(docSnapshot.id, docSnapshot.data() as Record<string, unknown>))
-      .filter((booking) => booking.requesterId === requesterId)
+      .map((docSnapshot: { id: string; data: () => Record<string, unknown> }) =>
+        mapBooking(docSnapshot.id, docSnapshot.data() as Record<string, unknown>))
+      .filter((booking: BookingRequestRecord) => booking.requesterId === requesterId)
       .sort(compareCreatedAtDescending)
       .slice(0, 50);
 
