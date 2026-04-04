@@ -1,14 +1,12 @@
 import {
   addDoc,
   collection,
-  type DocumentData,
   doc,
   getDoc,
   getDocs,
   limit,
   onSnapshot,
   orderBy,
-  type QueryDocumentSnapshot,
   query,
   serverTimestamp,
   setDoc,
@@ -156,7 +154,10 @@ function compareCreatedAtDescending<
 }
 
 type ListenerCleanup = () => void;
-type FirestoreDocSnapshot = QueryDocumentSnapshot<DocumentData>;
+type FirestoreDocSnapshot = {
+  id: string;
+  data: () => Record<string, unknown>;
+};
 
 const defaultOffer: BusinessOffer = {
   enabled: false,
