@@ -163,6 +163,9 @@ type FirestoreDocSnapshot = {
   id: string;
   data: () => Record<string, unknown>;
 };
+type FirestoreQuerySnapshot = {
+  docs: FirestoreDocSnapshot[];
+};
 
 const defaultOffer: BusinessOffer = {
   enabled: false,
@@ -627,7 +630,7 @@ export function subscribeToIncomingBookings(
   try {
     return onSnapshot(
       bookingsQuery,
-      (snapshot) => {
+      (snapshot: FirestoreQuerySnapshot) => {
         callback(
           mapBookings(snapshot.docs as Array<{ id: string; data: () => Record<string, unknown> }>)
         );
@@ -691,7 +694,7 @@ export function subscribeToOutgoingBookings(
   try {
     return onSnapshot(
       bookingsQuery,
-      (snapshot) => {
+      (snapshot: FirestoreQuerySnapshot) => {
         callback(
           mapBookings(snapshot.docs as Array<{ id: string; data: () => Record<string, unknown> }>)
         );
@@ -773,7 +776,7 @@ export function subscribeToWaitlistEntries(
   }
 
   const waitlistQuery = query(collection(db, "waitlist"), orderBy("createdAt", "desc"), limit(100));
-  return onSnapshot(waitlistQuery, (snapshot) => {
+  return onSnapshot(waitlistQuery, (snapshot: FirestoreQuerySnapshot) => {
     callback(
       snapshot.docs.map((docSnapshot: FirestoreDocSnapshot) => {
         const data = docSnapshot.data() as Record<string, unknown>;
