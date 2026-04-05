@@ -5,6 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "cf:build": "opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion",
+    "cf:deploy": "npm run cf:build && opennextjs-cloudflare deploy",
+    "cf:preview": "npm run cf:build && opennextjs-cloudflare preview",
     "start": "next start",
     "lint": "next lint",
     "cap:sync": "npx cap sync",
@@ -37,10 +40,12 @@
     "typescript": "^5"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.18.0",
     "autoprefixer": "^10.4.20",
     "eslint": "^8",
     "eslint-config-next": "^14.2.35",
     "postcss": "^8.4.47",
-    "tailwindcss": "^3.4.17"
+    "tailwindcss": "^3.4.17",
+    "wrangler": "^4.80.0"
   }
 }
