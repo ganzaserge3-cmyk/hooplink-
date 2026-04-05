@@ -4,8 +4,8 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "HoopLink",
     short_name: "HoopLink",
-    description: "Sports social app for athletes, coaches, scouts, and fans.",
-    start_url: "/feed",
+    description: "Sports social platform for athletes, coaches, scouts, creators, teams, and fans.",
+    start_url: "/",
     display: "standalone",
     background_color: "#0c1220",
     theme_color: "#22d3ee",

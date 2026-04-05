@@ -2,14 +2,20 @@ export const siteConfig = {
   name: "HoopLink",
   shortName: "HoopLink",
   description:
-    "HoopLink is a basketball community app where players, coaches, scouts, and fans connect, share highlights, discover opportunities, and grow together on and off the court.",
-  tagline: "Where Basketball Connects",
-  domain: process.env.NEXT_PUBLIC_SITE_URL ?? "https://hooplink.app",
+    "HoopLink is a sports social platform where athletes, coaches, scouts, creators, teams, and fans connect, share highlights, discover opportunities, and grow together.",
+  tagline: "The Sports Network For Athletes, Coaches, Scouts, And Creators",
+  domain:
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://hooplink.ganzaserge3.workers.dev",
   ogImage: "/icon.svg",
   keywords: [
     "HoopLink",
+    "sports social platform",
+    "athlete social network",
+    "sports app",
     "basketball app",
-    "basketball community",
+    "athlete profiles",
+    "sports creators",
+    "sports community",
     "athlete network",
     "coach scouting platform",
     "basketball highlights",
@@ -24,11 +30,12 @@ export const publicRoutes = [
   "/community",
   "/discover",
   "/events",
+  "/fan-hub",
   "/leaderboards",
+  "/spotlights",
   "/teams",
   "/training",
   "/blog",
-  "/fan-hub",
 ] as const;
 
 export function buildSiteUrl(path = "") {

@@ -1,7 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { buildSiteUrl } from "@/lib/site";
+
+export const metadata: Metadata = {
+  title: "About",
+  description:
+    "Learn what HoopLink is building for athletes, coaches, scouts, creators, and sports communities.",
+  alternates: {
+    canonical: buildSiteUrl("/about"),
+  },
+};
 
 const pillars = [
   {
