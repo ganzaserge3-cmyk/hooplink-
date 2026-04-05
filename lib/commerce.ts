@@ -393,7 +393,9 @@ export async function getOwnedCampaignApplications() {
         createdAt: mapTimestamp(data, "createdAt"),
       } satisfies CampaignApplicationRecord;
     })
-    .filter((application) => application.ownerId === auth!.currentUser!.uid)
+    .filter(
+      (application: CampaignApplicationRecord) => application.ownerId === auth!.currentUser!.uid
+    )
     .sort(compareCreatedAtDescending)
     .slice(0, 50);
 }
@@ -466,7 +468,7 @@ export async function getCurrentUserContracts() {
         createdAt: mapTimestamp(data, "createdAt"),
       } satisfies ContractRecord;
     })
-    .filter((contract) => contract.ownerId === auth!.currentUser!.uid)
+    .filter((contract: ContractRecord) => contract.ownerId === auth!.currentUser!.uid)
     .sort(compareCreatedAtDescending)
     .slice(0, 30);
 }
@@ -521,7 +523,7 @@ export async function getCurrentUserInvoices() {
         createdAt: mapTimestamp(data, "createdAt"),
       } satisfies InvoiceRecord;
     })
-    .filter((invoice) => invoice.ownerId === auth!.currentUser!.uid)
+    .filter((invoice: InvoiceRecord) => invoice.ownerId === auth!.currentUser!.uid)
     .sort(compareCreatedAtDescending)
     .slice(0, 50);
 }
@@ -790,7 +792,7 @@ export async function createMarketplaceListing(input: {
     priceLabel: input.priceLabel.trim(),
     location: String(input.location ?? "").trim(),
     checkoutUrl: String(input.checkoutUrl ?? "").trim(),
-    tags: (input.tags ?? []).map((tag) => tag.trim()).filter(Boolean),
+    tags: (input.tags ?? []).map((tag: string) => tag.trim()).filter(Boolean),
     active: true,
     createdAt: serverTimestamp(),
   });
@@ -842,8 +844,10 @@ export async function getMarketplaceListings(type?: MarketplaceListingType | "al
         createdAt: mapTimestamp(data, "createdAt"),
       } satisfies MarketplaceListingRecord;
     })
-    .filter((listing) => listing.active)
-    .filter((listing) => !type || type === "all" || listing.type === type)
+    .filter((listing: MarketplaceListingRecord) => listing.active)
+    .filter(
+      (listing: MarketplaceListingRecord) => !type || type === "all" || listing.type === type
+    )
     .sort(compareCreatedAtDescending);
 }
 
@@ -890,7 +894,7 @@ export async function getCurrentUserMarketplaceListings() {
         createdAt: mapTimestamp(data, "createdAt"),
       } satisfies MarketplaceListingRecord;
     })
-    .filter((listing) => listing.ownerId === auth!.currentUser!.uid)
+    .filter((listing: MarketplaceListingRecord) => listing.ownerId === auth!.currentUser!.uid)
     .sort(compareCreatedAtDescending)
     .slice(0, 50);
 }
@@ -993,7 +997,7 @@ export async function getCurrentUserPartnerReferralRecords() {
         createdAt?: { seconds?: number; nanoseconds?: number } | null;
       };
     })
-    .filter((entry) => entry.ownerId === auth!.currentUser!.uid)
+    .filter((entry: PartnerReferralRecord) => entry.ownerId === auth!.currentUser!.uid)
     .sort(compareCreatedAtDescending)
     .slice(0, 30)
     .map(({ createdAt: _createdAt, ...entry }) => entry);
@@ -1009,11 +1013,16 @@ export async function getCurrentAmbassadorStats(): Promise<AmbassadorStats> {
     (docSnapshot: FirestoreDocSnapshot) => docSnapshot.data() as Record<string, unknown>
   );
   const topEntry = invites
-    .map((entry) => ({
+    .map((entry: Record<string, unknown>) => ({
       code: String(entry.code ?? ""),
       referralCount: Number(entry.referralCount ?? entry.uses ?? 0),
     }))
-    .sort((left, right) => right.referralCount - left.referralCount)[0];
+    .sort(
+      (
+        left: { referralCount: number; code: string },
+        right: { referralCount: number; code: string }
+      ) => right.referralCount - left.referralCount
+    )[0];
 
   return {
     invitesCreated: invites.length,
@@ -1033,7 +1042,7 @@ export async function getCurrentPayoutSnapshot(): Promise<PayoutSnapshot> {
     getCurrentUserCommissionRecords(),
   ]);
 
-  const paidInvoices = invoices.filter((invoice) => invoice.status === "paid");
+  const paidInvoices = invoices.filter((invoice: InvoiceRecord) => invoice.status === "paid");
   const paidInvoiceRevenue = paidInvoices.reduce((sum, invoice) => sum + parseAmount(invoice.amountLabel), 0);
   const bookingRevenue = bookings.docs.reduce((sum, docSnapshot) => {
     const data = docSnapshot.data() as Record<string, unknown>;
@@ -1067,7 +1076,7 @@ export async function getCurrentTaxExportReport(): Promise<TaxExportReport> {
   ]);
 
   const invoiceRevenue = invoices
-    .filter((invoice) => invoice.status === "paid")
+    .filter((invoice: InvoiceRecord) => invoice.status === "paid")
     .reduce((sum, invoice) => sum + parseAmount(invoice.amountLabel), 0);
   const listingRevenue = listings.reduce((sum, listing) => sum + parseAmount(listing.priceLabel), 0);
   const estimatedTaxableRevenue = payouts.bookingRevenue + invoiceRevenue + payouts.tipRevenue + listingRevenue;
