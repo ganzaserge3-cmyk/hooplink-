@@ -929,9 +929,8 @@ export function subscribeToFeed(
 
   const feedQuery = query(
     collection(db, "posts"),
-    where("contentType", "==", "post"),
     orderBy("createdAt", "desc"),
-    limit(24)
+    limit(48)
   );
 
   let stopped = false;
@@ -954,7 +953,6 @@ export function subscribeToFeed(
             scorePosts(
               rawPosts.filter(
                 (post) =>
-                  post.contentType === "post" &&
                   !blockedUsers.includes(post.userId) &&
                   isVisiblePost(post) &&
                   canAccessPost(post, profile)

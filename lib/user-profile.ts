@@ -1000,7 +1000,7 @@ export async function searchProfiles(searchTerm: string) {
     return [];
   }
 
-  const snapshot = await getDocs(query(collection(db, "users"), limit(50)));
+  const snapshot = await getDocs(query(collection(db, "users"), limit(250)));
   const normalized = searchTerm.trim().toLowerCase();
   const currentUserSnapshot = auth?.currentUser
     ? await getDoc(doc(db, "users", auth.currentUser.uid))
@@ -1013,10 +1013,39 @@ export async function searchProfiles(searchTerm: string) {
     : [];
 
   return snapshot.docs
-    .map(
-      (docSnapshot: { data: () => Record<string, unknown> }) =>
-        docSnapshot.data() as unknown as SearchProfile
-    )
+    .map((docSnapshot: { id: string; data: () => Record<string, unknown> }) => {
+      const data = docSnapshot.data() as Record<string, unknown>;
+      const role = (data.role as Record<string, unknown> | undefined) ?? {};
+      const identity = (data.identity as Record<string, unknown> | undefined) ?? {};
+
+      return {
+        ...(data as unknown as SearchProfile),
+        uid: String(data.uid ?? docSnapshot.id),
+        displayName: String(data.displayName ?? "HoopLink User"),
+        photoURL: String(data.photoURL ?? ""),
+        username: data.username ? String(data.username) : null,
+        location: data.location ? String(data.location) : null,
+        verified: data.verified === true,
+        followers: Array.isArray(data.followers) ? (data.followers as string[]) : [],
+        following: Array.isArray(data.following) ? (data.following as string[]) : [],
+        role: {
+          type: role.type ? String(role.type) : null,
+          sport: role.sport ? String(role.sport) : null,
+          position: role.position ? String(role.position) : null,
+          team: role.team ? String(role.team) : null,
+          experience: role.experience ? String(role.experience) : null,
+          bio: role.bio ? String(role.bio) : null,
+          age: typeof role.age === "number" ? role.age : null,
+          height: role.height ? String(role.height) : null,
+        },
+        identity: {
+          ...(data.identity as SearchProfile["identity"]),
+          tagline: identity.tagline ? String(identity.tagline) : null,
+          hometown: identity.hometown ? String(identity.hometown) : null,
+          gradYear: identity.gradYear ? String(identity.gradYear) : null,
+        },
+      } satisfies SearchProfile;
+    })
     .filter((profile: SearchProfile) => !blockedUsers.includes(profile.uid))
     .filter((profile: SearchProfile) => {
       if (!normalized) {
@@ -1034,11 +1063,17 @@ export async function searchProfiles(searchTerm: string) {
         profile.role?.height,
         profile.location,
         profile.role?.bio,
+        profile.identity?.tagline,
+        profile.identity?.hometown,
+        profile.identity?.gradYear,
       ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
 
       return haystack.includes(normalized);
-    });
+    })
+    .sort((left: SearchProfile, right: SearchProfile) =>
+      left.displayName.localeCompare(right.displayName)
+    );
 }
