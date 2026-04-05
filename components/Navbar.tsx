@@ -136,6 +136,10 @@ export default function Navbar() {
     previousNotificationIds.current = notifications.map((notification) => notification.id);
   }, [notifications, pushEnabled, user]);
 
+  useEffect(() => {
+    closeWorkspaceMenus();
+  }, [pathname]);
+
   const unreadCount = user
     ? notifications.filter((notification) => !notification.readBy?.includes(user.uid)).length
     : 0;
