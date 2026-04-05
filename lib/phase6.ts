@@ -259,17 +259,7 @@ export async function getOwnedMerchProducts() {
         createdAt: mapTime(data.createdAt),
       } satisfies MerchProductRecord;
     })
-    .sort((left, right) => {
-      const leftSeconds = left.createdAt?.seconds ?? 0;
-      const rightSeconds = right.createdAt?.seconds ?? 0;
-      if (leftSeconds !== rightSeconds) {
-        return rightSeconds - leftSeconds;
-      }
-
-      const leftNanos = left.createdAt?.nanoseconds ?? 0;
-      const rightNanos = right.createdAt?.nanoseconds ?? 0;
-      return rightNanos - leftNanos;
-    });
+    .sort(compareCreatedAtDescending);
 }
 
 export async function getCreatorMerchProducts(uid: string) {
@@ -288,17 +278,7 @@ export async function getCreatorMerchProducts(uid: string) {
         createdAt: mapTime(data.createdAt),
       } satisfies MerchProductRecord;
     })
-    .sort((left, right) => {
-      const leftSeconds = left.createdAt?.seconds ?? 0;
-      const rightSeconds = right.createdAt?.seconds ?? 0;
-      if (leftSeconds !== rightSeconds) {
-        return rightSeconds - leftSeconds;
-      }
-
-      const leftNanos = left.createdAt?.nanoseconds ?? 0;
-      const rightNanos = right.createdAt?.nanoseconds ?? 0;
-      return rightNanos - leftNanos;
-    });
+    .sort(compareCreatedAtDescending);
 }
 
 export async function createCoupon(input: { code: string; description: string; reward: string }) {
@@ -484,7 +464,7 @@ export async function getIncomingPriorityInbox() {
         createdAt: mapTime(data.createdAt),
       } satisfies PriorityInboxRequest;
     })
-    .filter((request) => request.creatorId === auth.currentUser.uid)
+    .filter((request: PriorityInboxRequest) => request.creatorId === auth.currentUser.uid)
     .sort(compareCreatedAtDescending)
     .slice(0, 50);
 }
@@ -545,7 +525,7 @@ export async function getCreatorNewsletterIssues(creatorId: string) {
         createdAt: mapTime(data.createdAt),
       } satisfies NewsletterIssue;
     })
-    .filter((issue) => issue.creatorId === creatorId)
+    .filter((issue: NewsletterIssue) => issue.creatorId === creatorId)
     .sort(compareCreatedAtDescending)
     .slice(0, 50);
 }
@@ -593,7 +573,7 @@ export async function getCreatorBlogPosts(creatorId: string) {
         createdAt: mapTime(data.createdAt),
       } satisfies BlogPostRecord;
     })
-    .filter((post) => post.creatorId === creatorId)
+    .filter((post: BlogPostRecord) => post.creatorId === creatorId)
     .sort(compareCreatedAtDescending)
     .slice(0, 50);
 }

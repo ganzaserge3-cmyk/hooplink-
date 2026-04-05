@@ -544,7 +544,7 @@ export async function getPodcastEpisodes(creatorId?: string) {
         createdAt: mapTime(data.createdAt),
       } satisfies PodcastEpisodeRecord;
     })
-    .filter((episode) => !creatorId || episode.creatorId === creatorId)
+    .filter((episode: PodcastEpisodeRecord) => !creatorId || episode.creatorId === creatorId)
     .sort(compareCreatedAtDescending)
     .slice(0, 50);
 }
@@ -605,7 +605,7 @@ export async function getAnonymousFeedback(teamId: string) {
       message: String(docSnapshot.data().message ?? ""),
       createdAt: mapTime(docSnapshot.data().createdAt),
     }) as AnonymousFeedbackRecord)
-    .filter((entry) => entry.teamId === teamId)
+    .filter((entry: AnonymousFeedbackRecord) => entry.teamId === teamId)
     .sort(compareCreatedAtDescending)
     .slice(0, 50);
 }
@@ -633,17 +633,7 @@ export async function getPostgameReflections(teamId: string) {
       reflection: String(docSnapshot.data().reflection ?? ""),
       createdAt: mapTime(docSnapshot.data().createdAt),
     }))
-    .sort((left, right) => {
-      const leftSeconds = left.createdAt?.seconds ?? 0;
-      const rightSeconds = right.createdAt?.seconds ?? 0;
-      if (leftSeconds !== rightSeconds) {
-        return rightSeconds - leftSeconds;
-      }
-
-      const leftNanos = left.createdAt?.nanoseconds ?? 0;
-      const rightNanos = right.createdAt?.nanoseconds ?? 0;
-      return rightNanos - leftNanos;
-    }) as PostgameReflectionRecord[];
+    .sort(compareCreatedAtDescending) as PostgameReflectionRecord[];
 }
 
 export async function createVote(input: { scope: "mvp" | "award"; teamId: string; title: string; candidateNames: string[] }) {

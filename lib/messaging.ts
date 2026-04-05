@@ -189,6 +189,13 @@ export interface ConversationMessage {
 }
 
 type ListenerCleanup = () => void;
+type FirestoreDocSnapshot = {
+  id: string;
+  data: () => Record<string, unknown>;
+};
+type FirestoreQuerySnapshot = {
+  docs: FirestoreDocSnapshot[];
+};
 
 function extractMentions(text: string) {
   return Array.from(new Set((text.match(/@\w+/g) ?? []).map((token) => token.slice(1).toLowerCase())));
@@ -891,9 +898,9 @@ export function subscribeToConversations(
     limit(30)
   );
 
-  return onSnapshot(conversationsQuery, (snapshot) => {
+  return onSnapshot(conversationsQuery, (snapshot: FirestoreQuerySnapshot) => {
     callback(
-      snapshot.docs.map((docSnapshot) => {
+      snapshot.docs.map((docSnapshot: FirestoreDocSnapshot) => {
         const data = docSnapshot.data() as Record<string, unknown>;
         const participantIds = Array.isArray(data.participantIds) ? (data.participantIds as string[]) : [];
         return {
@@ -979,8 +986,8 @@ export function subscribeToConversationMessages(
     limit(150)
   );
 
-  return onSnapshot(messagesQuery, async (snapshot) => {
-    const nextMessages = snapshot.docs.map((docSnapshot) =>
+  return onSnapshot(messagesQuery, async (snapshot: FirestoreQuerySnapshot) => {
+    const nextMessages = snapshot.docs.map((docSnapshot: FirestoreDocSnapshot) =>
       mapConversationMessage(docSnapshot.id, docSnapshot.data() as Record<string, unknown>)
     );
 
@@ -990,11 +997,11 @@ export function subscribeToConversationMessages(
       await Promise.all(
         nextMessages
           .filter(
-            (message) =>
+            (message: ConversationMessage) =>
               message.senderId !== auth.currentUser?.uid &&
               !message.readBy.includes(auth.currentUser.uid)
           )
-          .map((message) =>
+          .map((message: ConversationMessage) =>
             setDoc(
               doc(db, "messages", message.id),
               { readBy: [...message.readBy, auth.currentUser!.uid] },

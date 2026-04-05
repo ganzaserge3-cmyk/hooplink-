@@ -1035,7 +1035,11 @@ export async function getCurrentAmbassadorStats(): Promise<AmbassadorStats> {
 
   return {
     invitesCreated: invites.length,
-    referralCount: invites.reduce((sum, entry) => sum + Number(entry.referralCount ?? entry.uses ?? 0), 0),
+    referralCount: invites.reduce(
+      (sum: number, entry: Record<string, unknown>) =>
+        sum + Number(entry.referralCount ?? entry.uses ?? 0),
+      0
+    ),
     topInviteCode: topEntry?.code ?? "",
   };
 }
@@ -1052,19 +1056,25 @@ export async function getCurrentPayoutSnapshot(): Promise<PayoutSnapshot> {
   ]);
 
   const paidInvoices = invoices.filter((invoice: InvoiceRecord) => invoice.status === "paid");
-  const paidInvoiceRevenue = paidInvoices.reduce((sum, invoice) => sum + parseAmount(invoice.amountLabel), 0);
-  const bookingRevenue = bookings.docs.reduce((sum, docSnapshot) => {
+  const paidInvoiceRevenue = paidInvoices.reduce(
+    (sum: number, invoice: InvoiceRecord) => sum + parseAmount(invoice.amountLabel),
+    0
+  );
+  const bookingRevenue = bookings.docs.reduce((sum: number, docSnapshot: FirestoreDocSnapshot) => {
     const data = docSnapshot.data() as Record<string, unknown>;
     if (data.status !== "accepted" && data.status !== "completed") {
       return sum;
     }
     return sum + parseAmount(String(data.priceLabel ?? "")) + parseAmount(String(data.depositLabel ?? ""));
   }, 0);
-  const tipRevenue = tips.docs.reduce((sum, docSnapshot) => {
+  const tipRevenue = tips.docs.reduce((sum: number, docSnapshot: FirestoreDocSnapshot) => {
     const data = docSnapshot.data() as Record<string, unknown>;
     return sum + parseAmount(String(data.amountLabel ?? ""));
   }, 0);
-  const commissionRevenue = commissions.reduce((sum, entry) => sum + parseAmount(entry.amountLabel), 0);
+  const commissionRevenue = commissions.reduce(
+    (sum: number, entry: CommissionRecord) => sum + parseAmount(entry.amountLabel),
+    0
+  );
 
   return {
     estimatedPayout: paidInvoiceRevenue + bookingRevenue + tipRevenue + commissionRevenue,
@@ -1086,8 +1096,11 @@ export async function getCurrentTaxExportReport(): Promise<TaxExportReport> {
 
   const invoiceRevenue = invoices
     .filter((invoice: InvoiceRecord) => invoice.status === "paid")
-    .reduce((sum, invoice) => sum + parseAmount(invoice.amountLabel), 0);
-  const listingRevenue = listings.reduce((sum, listing) => sum + parseAmount(listing.priceLabel), 0);
+    .reduce((sum: number, invoice: InvoiceRecord) => sum + parseAmount(invoice.amountLabel), 0);
+  const listingRevenue = listings.reduce(
+    (sum: number, listing: MarketplaceListingRecord) => sum + parseAmount(listing.priceLabel),
+    0
+  );
   const estimatedTaxableRevenue = payouts.bookingRevenue + invoiceRevenue + payouts.tipRevenue + listingRevenue;
 
   return {

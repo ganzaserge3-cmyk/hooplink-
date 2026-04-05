@@ -870,7 +870,7 @@ export async function getTeamPosts(teamId: string) {
           (data.createdAt as { seconds?: number; nanoseconds?: number } | null | undefined) ?? null,
       } satisfies TeamPost;
     })
-    .filter((post) => post.teamId === teamId)
+    .filter((post: TeamPost) => post.teamId === teamId)
     .sort(compareCreatedAtDescending)
     .slice(0, 50);
 }
@@ -1030,7 +1030,7 @@ export async function getTeamChatRooms(teamId: string) {
           (data.createdAt as { seconds?: number; nanoseconds?: number } | null | undefined) ?? null,
       } satisfies TeamChatRoom;
     })
-    .sort((left, right) => {
+    .sort((left: TeamChatRoom, right: TeamChatRoom) => {
       const leftSeconds = left.createdAt?.seconds ?? 0;
       const rightSeconds = right.createdAt?.seconds ?? 0;
       if (leftSeconds !== rightSeconds) {
@@ -1074,7 +1074,7 @@ export function subscribeToTeamChatMessages(
 
   const mapMessages = (docs: Array<{ id: string; data: () => Record<string, unknown> }>) =>
     docs
-      .map((docSnapshot) => {
+      .map((docSnapshot: { id: string; data: () => Record<string, unknown> }) => {
         const data = docSnapshot.data() as Record<string, unknown>;
         return {
           id: docSnapshot.id,
@@ -1088,7 +1088,7 @@ export function subscribeToTeamChatMessages(
             null,
         } satisfies TeamChatMessage;
       })
-      .filter((message) => message.roomId === roomId)
+      .filter((message: TeamChatMessage) => message.roomId === roomId)
       .sort(compareCreatedAtAscending)
       .slice(-100);
 
@@ -1109,7 +1109,7 @@ export function subscribeToTeamChatMessages(
           return;
         }
 
-        void getDocs(query(collection(db, "teamChatMessages"), limit(200))).then((snapshot) => {
+        void getDocs(query(collection(db, "teamChatMessages"), limit(200))).then((snapshot: { docs: Array<{ id: string; data: () => Record<string, unknown> }> }) => {
           callback(
             mapMessages(
               snapshot.docs as Array<{ id: string; data: () => Record<string, unknown> }>
@@ -1124,7 +1124,7 @@ export function subscribeToTeamChatMessages(
       return () => undefined;
     }
 
-    void getDocs(query(collection(db, "teamChatMessages"), limit(200))).then((snapshot) => {
+    void getDocs(query(collection(db, "teamChatMessages"), limit(200))).then((snapshot: { docs: Array<{ id: string; data: () => Record<string, unknown> }> }) => {
       callback(
         mapMessages(
           snapshot.docs as Array<{ id: string; data: () => Record<string, unknown> }>
@@ -1285,7 +1285,7 @@ export function subscribeToCoachFeedback(
 
   const mapFeedback = (docs: Array<{ id: string; data: () => Record<string, unknown> }>) =>
     docs
-      .map((docSnapshot) => {
+      .map((docSnapshot: { id: string; data: () => Record<string, unknown> }) => {
         const data = docSnapshot.data() as Record<string, unknown>;
         return {
           id: docSnapshot.id,
@@ -1300,7 +1300,7 @@ export function subscribeToCoachFeedback(
             null,
         } satisfies CoachFeedbackRecord;
       })
-      .filter((entry) => entry.postId === postId)
+      .filter((entry: CoachFeedbackRecord) => entry.postId === postId)
       .sort(compareCreatedAtDescending)
       .slice(0, 20);
 
@@ -1316,7 +1316,7 @@ export function subscribeToCoachFeedback(
           return;
         }
 
-        void getDocs(query(collection(db, "coachFeedback"), limit(100))).then((snapshot) => {
+        void getDocs(query(collection(db, "coachFeedback"), limit(100))).then((snapshot: { docs: Array<{ id: string; data: () => Record<string, unknown> }> }) => {
           callback(
             mapFeedback(
               snapshot.docs as Array<{ id: string; data: () => Record<string, unknown> }>
@@ -1331,7 +1331,7 @@ export function subscribeToCoachFeedback(
       return () => undefined;
     }
 
-    void getDocs(query(collection(db, "coachFeedback"), limit(100))).then((snapshot) => {
+    void getDocs(query(collection(db, "coachFeedback"), limit(100))).then((snapshot: { docs: Array<{ id: string; data: () => Record<string, unknown> }> }) => {
       callback(
         mapFeedback(
           snapshot.docs as Array<{ id: string; data: () => Record<string, unknown> }>

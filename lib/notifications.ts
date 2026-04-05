@@ -276,7 +276,7 @@ export async function getPushDevices() {
           (data.createdAt as { seconds?: number; nanoseconds?: number } | null | undefined) ?? null,
       } satisfies PushDeviceRecord;
     })
-    .sort((left, right) => {
+    .sort((left: PushDeviceRecord, right: PushDeviceRecord) => {
       const leftSeconds = left.createdAt?.seconds ?? 0;
       const rightSeconds = right.createdAt?.seconds ?? 0;
       if (leftSeconds !== rightSeconds) {
