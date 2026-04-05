@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "cf:build": "opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion",
+    "cf:build": "opennextjs-cloudflare build",
     "cf:deploy": "npm run cf:build && opennextjs-cloudflare deploy",
     "cf:preview": "npm run cf:build && opennextjs-cloudflare preview",
     "start": "next start",
