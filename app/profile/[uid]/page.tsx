@@ -22,6 +22,7 @@ interface PublicProfile {
   uid?: string;
   displayName?: string;
   username?: string;
+  location?: string;
   photoURL?: string;
   coverPhotoURL?: string;
   profileTheme?: string;
