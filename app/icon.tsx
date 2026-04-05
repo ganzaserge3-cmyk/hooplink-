@@ -17,8 +17,7 @@ export default function Icon(): ImageResponse {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#030b14",
-          borderRadius: 14,
+          background: "transparent",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
