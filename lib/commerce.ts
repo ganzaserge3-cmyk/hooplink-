@@ -1000,7 +1000,16 @@ export async function getCurrentUserPartnerReferralRecords() {
     .filter((entry: PartnerReferralRecord) => entry.ownerId === auth!.currentUser!.uid)
     .sort(compareCreatedAtDescending)
     .slice(0, 30)
-    .map(({ createdAt: _createdAt, ...entry }) => entry);
+    .map(
+      (
+        entry: PartnerReferralRecord & {
+          createdAt?: { seconds?: number; nanoseconds?: number } | null;
+        }
+      ) => {
+        const { createdAt: _createdAt, ...rest } = entry;
+        return rest;
+      }
+    );
 }
 
 export async function getCurrentAmbassadorStats(): Promise<AmbassadorStats> {
