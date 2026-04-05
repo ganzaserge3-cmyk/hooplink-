@@ -17,7 +17,8 @@ export default function Icon(): ImageResponse {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "transparent",
+          background: "#ffffff",
+          borderRadius: 14,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
@@ -26,7 +27,7 @@ export default function Icon(): ImageResponse {
               width: 10,
               height: 28,
               borderRadius: 3,
-              background: "#ffffff",
+              background: "#030b14",
             }}
           />
           <div
@@ -34,7 +35,7 @@ export default function Icon(): ImageResponse {
               width: 8,
               height: 8,
               borderRadius: 999,
-              background: "#ffffff",
+              background: "#030b14",
               alignSelf: "center",
             }}
           />
@@ -51,7 +52,7 @@ export default function Icon(): ImageResponse {
                 width: 10,
                 height: 28,
                 borderRadius: 3,
-                background: "#ffffff",
+                background: "#030b14",
                 position: "absolute",
                 left: 0,
                 top: 0,
@@ -62,7 +63,7 @@ export default function Icon(): ImageResponse {
                 width: 14,
                 height: 10,
                 borderRadius: 3,
-                background: "#ffffff",
+                background: "#030b14",
                 position: "absolute",
                 right: 0,
                 bottom: 0,
