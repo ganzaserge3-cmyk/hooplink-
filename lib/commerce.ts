@@ -303,17 +303,7 @@ export async function getOpenBrandCampaigns() {
       } satisfies BrandCampaignRecord;
     })
     .filter((campaign: BrandCampaignRecord) => campaign.active)
-    .sort((left, right) => {
-      const leftSeconds = left.createdAt?.seconds ?? 0;
-      const rightSeconds = right.createdAt?.seconds ?? 0;
-      if (leftSeconds !== rightSeconds) {
-        return rightSeconds - leftSeconds;
-      }
-
-      const leftNanos = left.createdAt?.nanoseconds ?? 0;
-      const rightNanos = right.createdAt?.nanoseconds ?? 0;
-      return rightNanos - leftNanos;
-    });
+    .sort(compareCreatedAtDescending);
 }
 
 export async function getOwnedBrandCampaigns() {
@@ -339,17 +329,7 @@ export async function getOwnedBrandCampaigns() {
         createdAt: mapTimestamp(data, "createdAt"),
       } satisfies BrandCampaignRecord;
     })
-    .sort((left, right) => {
-      const leftSeconds = left.createdAt?.seconds ?? 0;
-      const rightSeconds = right.createdAt?.seconds ?? 0;
-      if (leftSeconds !== rightSeconds) {
-        return rightSeconds - leftSeconds;
-      }
-
-      const leftNanos = left.createdAt?.nanoseconds ?? 0;
-      const rightNanos = right.createdAt?.nanoseconds ?? 0;
-      return rightNanos - leftNanos;
-    });
+    .sort(compareCreatedAtDescending);
 }
 
 export async function applyToBrandCampaign(campaign: BrandCampaignRecord, note: string) {
@@ -864,17 +844,7 @@ export async function getMarketplaceListings(type?: MarketplaceListingType | "al
     })
     .filter((listing) => listing.active)
     .filter((listing) => !type || type === "all" || listing.type === type)
-    .sort((left, right) => {
-      const leftSeconds = left.createdAt?.seconds ?? 0;
-      const rightSeconds = right.createdAt?.seconds ?? 0;
-      if (leftSeconds !== rightSeconds) {
-        return rightSeconds - leftSeconds;
-      }
-
-      const leftNanos = left.createdAt?.nanoseconds ?? 0;
-      const rightNanos = right.createdAt?.nanoseconds ?? 0;
-      return rightNanos - leftNanos;
-    });
+    .sort(compareCreatedAtDescending);
 }
 
 export async function getCurrentUserMarketplaceListings() {
@@ -921,9 +891,7 @@ export async function getCurrentUserMarketplaceListings() {
       } satisfies MarketplaceListingRecord;
     })
     .filter((listing) => listing.ownerId === auth!.currentUser!.uid)
-    .sort((left, right) => {
-      return compareCreatedAtDescending(left, right);
-    })
+    .sort(compareCreatedAtDescending)
     .slice(0, 50);
 }
 
