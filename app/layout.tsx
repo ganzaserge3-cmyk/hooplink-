@@ -26,9 +26,12 @@ export const metadata: Metadata = {
   applicationName: siteConfig.name,
   manifest: "/manifest.webmanifest",
   icons: {
+    shortcut: "/favicon.svg",
     icon: "/icon.svg",
     apple: "/icon.svg",
-    shortcut: "/icon.svg",
+  },
+  verification: {
+    google: "NhNHQ9nxbnafEu8ltnZaqHlcP6scBj0DRJXLng9TxFw",
   },
   openGraph: {
     type: "website",
