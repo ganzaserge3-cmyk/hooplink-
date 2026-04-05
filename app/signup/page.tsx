@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail, Lock, User, UserPlus } from "lucide-react";
 import Link from "next/link";
+import BrandMark from "@/components/BrandMark";
 import { getAppAccessSettings, redeemInviteCode, validateInviteCode } from "@/lib/admin";
 import { auth, firebaseConfigError, isFirebaseConfigured } from "@/lib/firebase";
 
@@ -114,10 +115,9 @@ export default function SignupPage() {
       <Card className="w-full max-w-md mx-auto">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-6">
-            <UserPlus className="h-12 w-12 text-primary mr-3" />
-            <h1 className="text-3xl font-bold">
-              Join <span className="brand-wordmark">HoopLink</span>
-            </h1>
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#0c1220] text-white shadow-sm">
+              <BrandMark className="h-9 w-auto" />
+            </div>
           </div>
           <CardTitle className="text-2xl text-center">Create account</CardTitle>
           <CardDescription className="text-center">

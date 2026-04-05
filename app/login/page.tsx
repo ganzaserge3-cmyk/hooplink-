@@ -11,6 +11,7 @@ import {
 } from "firebase/auth";
 import { Lock, Mail } from "lucide-react";
 
+import BrandMark from "@/components/BrandMark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -164,7 +165,9 @@ function LoginPageContent() {
       <Card className="w-full max-w-md mx-auto">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
-            <h1 className="brand-wordmark text-3xl">HoopLink</h1>
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#0c1220] text-white shadow-sm">
+              <BrandMark className="h-9 w-auto" />
+            </div>
           </div>
           <CardTitle className="text-2xl text-center">Welcome back</CardTitle>
           <CardDescription className="text-center">

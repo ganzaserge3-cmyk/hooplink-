@@ -11,6 +11,7 @@ import { subscribeToNotifications, type AppNotification } from "@/lib/notificati
 import { getCurrentUserSettings } from "@/lib/settings";
 import { isCurrentUserAdmin } from "@/lib/moderation";
 import { useAuthContext } from "@/components/AuthProvider";
+import BrandMark from "@/components/BrandMark";
 import { Button } from "@/components/ui/button";
 import { subscribeToConversations, type ConversationSummary } from "@/lib/messaging";
 
@@ -137,8 +138,12 @@ export default function Navbar() {
   return (
     <nav className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 max-w-screen-2xl items-center justify-between">
-        <Link href={user ? "/feed" : "/"} className="brand-wordmark text-xl sm:text-2xl">
-          HoopLink
+        <Link
+          href={user ? "/feed" : "/"}
+          className="flex h-11 w-16 items-center justify-center rounded-xl text-white transition-opacity hover:opacity-90"
+          aria-label="HoopLink"
+        >
+          <BrandMark className="h-8 w-auto" />
         </Link>
 
         <div className="flex items-center gap-2">
