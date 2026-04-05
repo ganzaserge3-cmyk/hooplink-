@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Pirata_One } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
 import Navbar from "@/components/Navbar";
@@ -66,6 +67,28 @@ export const viewport = {
   colorScheme: "dark",
 };
 
+const organizationStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: siteConfig.name,
+  url: siteConfig.domain,
+  logo: buildSiteUrl("/icon.svg"),
+  sameAs: [siteConfig.domain],
+};
+
+const websiteStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: siteConfig.name,
+  url: siteConfig.domain,
+  description: siteConfig.description,
+  potentialAction: {
+    "@type": "SearchAction",
+    target: `${buildSiteUrl("/search")}?q={search_term_string}`,
+    "query-input": "required name=search_term_string",
+  },
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -75,6 +98,16 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.className} ${brand.variable} bg-background text-foreground`}>
         <AuthProvider>
+          <Script
+            id="organization-structured-data"
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationStructuredData) }}
+          />
+          <Script
+            id="website-structured-data"
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteStructuredData) }}
+          />
           <PWARegistrar />
           <ThemeSync />
           <Navbar />

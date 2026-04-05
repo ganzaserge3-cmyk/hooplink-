@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Script from "next/script";
 import { Gem, Grid3X3, PlaySquare, Quote, ShieldAlert, Sparkles, Star, Trophy, UserX } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -15,6 +16,7 @@ import { subscribeToUserPosts, type FeedPost } from "@/lib/posts";
 import { recordProfileVisit } from "@/lib/profile-analytics";
 import { createPriorityInboxRequest, getCreatorMerchProducts, type MerchProductRecord } from "@/lib/phase6";
 import { getUserProfileById, toggleFollowUser } from "@/lib/user-profile";
+import { buildSiteUrl } from "@/lib/site";
 
 interface PublicProfile {
   uid?: string;
@@ -180,6 +182,25 @@ function getVerifiedRoleLabel(role?: string) {
   return "Verified";
 }
 
+function buildProfileDescription(profile: PublicProfile, uid: string) {
+  const roleText = [profile.role?.type, profile.role?.sport, profile.role?.position]
+    .filter(Boolean)
+    .join(", ");
+  const bio = profile.role?.bio?.trim();
+  const location = profile.location?.trim();
+  const team = profile.role?.team?.trim();
+
+  return [
+    roleText ? `${profile.displayName || "HoopLink User"} profile` : profile.displayName || "HoopLink User",
+    roleText || null,
+    team ? `Team ${team}` : null,
+    location || null,
+    bio || `View highlights, reels, stats, and updates from ${profile.displayName || `user ${uid}`}.`,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+}
+
 function RolePanel({ profile }: { profile: PublicProfile }) {
   const role = profile.role?.type;
 
@@ -258,6 +279,40 @@ export default function PublicProfilePage({ params }: { params: { uid: string } 
     };
   }, [params.uid]);
 
+  useEffect(() => {
+    if (!profile) {
+      return;
+    }
+
+    const pageTitle = `${profile.displayName || "HoopLink User"} | ${[
+      profile.role?.sport,
+      profile.role?.position,
+      "HoopLink",
+    ]
+      .filter(Boolean)
+      .join(" ")}`;
+    const description = buildProfileDescription(profile, params.uid);
+    const canonicalUrl = buildSiteUrl(`/profile/${params.uid}`);
+
+    document.title = pageTitle;
+
+    let descriptionMeta = document.querySelector('meta[name="description"]');
+    if (!descriptionMeta) {
+      descriptionMeta = document.createElement("meta");
+      descriptionMeta.setAttribute("name", "description");
+      document.head.appendChild(descriptionMeta);
+    }
+    descriptionMeta.setAttribute("content", description);
+
+    let canonicalLink = document.querySelector('link[rel="canonical"]');
+    if (!canonicalLink) {
+      canonicalLink = document.createElement("link");
+      canonicalLink.setAttribute("rel", "canonical");
+      document.head.appendChild(canonicalLink);
+    }
+    canonicalLink.setAttribute("href", canonicalUrl);
+  }, [params.uid, profile]);
+
   const initials = useMemo(() => {
     const name = profile?.displayName || "Player";
     return name
@@ -294,9 +349,31 @@ export default function PublicProfilePage({ params }: { params: { uid: string } 
   const isSelf = user?.uid === params.uid;
   const isFollowing = Boolean(user && profile.followers?.includes(user.uid));
   const isSubscribed = Boolean(user && profile.subscriberIds?.includes(user.uid));
+  const profileStructuredData = {
+    "@context": "https://schema.org",
+    "@type": "ProfilePage",
+    url: buildSiteUrl(`/profile/${params.uid}`),
+    name: `${profile.displayName || "HoopLink User"} on HoopLink`,
+    description: buildProfileDescription(profile, params.uid),
+    mainEntity: {
+      "@type": "Person",
+      name: profile.displayName || "HoopLink User",
+      alternateName: profile.username ? `@${profile.username}` : undefined,
+      description: profile.role?.bio || profile.identity?.tagline || undefined,
+      homeLocation: profile.location || profile.identity?.hometown || undefined,
+      jobTitle: [profile.role?.type, profile.role?.sport, profile.role?.position].filter(Boolean).join(" "),
+      url: buildSiteUrl(`/profile/${params.uid}`),
+      image: profile.photoURL || buildSiteUrl("/icon.svg"),
+    },
+  };
 
   return (
     <div className="mx-auto max-w-3xl py-8">
+      <Script
+        id={`profile-structured-data-${params.uid}`}
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(profileStructuredData) }}
+      />
       <Card>
         <CardContent className="p-6">
           <div className={`-mx-6 -mt-6 mb-6 h-40 overflow-hidden bg-gradient-to-r ${getProfileThemeClass(profile.profileTheme)}`}>
