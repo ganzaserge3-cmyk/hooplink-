@@ -379,7 +379,7 @@ export async function getOwnedCampaignApplications() {
   }
 
   return snapshot.docs
-    .map((docSnapshot) => {
+    .map((docSnapshot: FirestoreDocSnapshot) => {
       const data = docSnapshot.data() as Record<string, unknown>;
       return {
         id: docSnapshot.id,
@@ -454,7 +454,7 @@ export async function getCurrentUserContracts() {
   }
 
   return snapshot.docs
-    .map((docSnapshot) => {
+    .map((docSnapshot: FirestoreDocSnapshot) => {
       const data = docSnapshot.data() as Record<string, unknown>;
       return {
         id: docSnapshot.id,
@@ -508,7 +508,7 @@ export async function getCurrentUserInvoices() {
   }
 
   return snapshot.docs
-    .map((docSnapshot) => {
+    .map((docSnapshot: FirestoreDocSnapshot) => {
       const data = docSnapshot.data() as Record<string, unknown>;
       return {
         id: docSnapshot.id,
@@ -560,7 +560,7 @@ export async function getCurrentUserDiscountCodes() {
     query(collection(db!, "discountCodes"), where("ownerId", "==", auth!.currentUser!.uid), limit(50))
   );
 
-  return snapshot.docs.map((docSnapshot) => {
+  return snapshot.docs.map((docSnapshot: FirestoreDocSnapshot) => {
     const data = docSnapshot.data() as Record<string, unknown>;
     return {
       id: docSnapshot.id,
@@ -597,7 +597,7 @@ export async function getCurrentUserMembershipTiers() {
   const snapshot = await getDocs(
     query(collection(db!, "membershipTiers"), where("ownerId", "==", auth!.currentUser!.uid), limit(20))
   );
-  return snapshot.docs.map((docSnapshot) => {
+  return snapshot.docs.map((docSnapshot: FirestoreDocSnapshot) => {
     const data = docSnapshot.data() as Record<string, unknown>;
     return {
       id: docSnapshot.id,
@@ -638,7 +638,7 @@ export async function getCurrentUserTeamBundles() {
   const snapshot = await getDocs(
     query(collection(db!, "teamBundles"), where("ownerId", "==", auth!.currentUser!.uid), limit(20))
   );
-  return snapshot.docs.map((docSnapshot) => {
+  return snapshot.docs.map((docSnapshot: FirestoreDocSnapshot) => {
     const data = docSnapshot.data() as Record<string, unknown>;
     return {
       id: docSnapshot.id,
@@ -668,7 +668,7 @@ export async function getCurrentUserSponsorBadgeRequests() {
   const snapshot = await getDocs(
     query(collection(db!, "sponsorBadgeRequests"), where("ownerId", "==", auth!.currentUser!.uid), limit(20))
   );
-  return snapshot.docs.map((docSnapshot) => {
+  return snapshot.docs.map((docSnapshot: FirestoreDocSnapshot) => {
     const data = docSnapshot.data() as Record<string, unknown>;
     return {
       id: docSnapshot.id,
@@ -696,7 +696,7 @@ export async function getCurrentUserDeliverables() {
   const snapshot = await getDocs(
     query(collection(db!, "campaignDeliverables"), where("ownerId", "==", auth!.currentUser!.uid), limit(50))
   );
-  return snapshot.docs.map((docSnapshot) => {
+  return snapshot.docs.map((docSnapshot: FirestoreDocSnapshot) => {
     const data = docSnapshot.data() as Record<string, unknown>;
     return {
       id: docSnapshot.id,
@@ -757,7 +757,7 @@ export async function getMarketplaceReviews(targetUid: string) {
   const snapshot = await getDocs(
     query(collection(db, "marketplaceReviews"), where("targetUid", "==", targetUid), limit(30))
   );
-  return snapshot.docs.map((docSnapshot) => {
+  return snapshot.docs.map((docSnapshot: FirestoreDocSnapshot) => {
     const data = docSnapshot.data() as Record<string, unknown>;
     return {
       id: docSnapshot.id,
@@ -816,7 +816,7 @@ export async function getMarketplaceListings(type?: MarketplaceListingType | "al
   }
 
   return snapshot.docs
-    .map((docSnapshot) => {
+    .map((docSnapshot: FirestoreDocSnapshot) => {
       const data = docSnapshot.data() as Record<string, unknown>;
       return {
         id: docSnapshot.id,
@@ -864,7 +864,7 @@ export async function getCurrentUserMarketplaceListings() {
   }
 
   return snapshot.docs
-    .map((docSnapshot) => {
+    .map((docSnapshot: FirestoreDocSnapshot) => {
       const data = docSnapshot.data() as Record<string, unknown>;
       return {
         id: docSnapshot.id,
@@ -929,7 +929,7 @@ export async function getCurrentUserCommissionRecords() {
   }
 
   return snapshot.docs
-    .map((docSnapshot) => {
+    .map((docSnapshot: FirestoreDocSnapshot) => {
       const data = docSnapshot.data() as Record<string, unknown>;
       return {
         id: docSnapshot.id,
@@ -979,7 +979,7 @@ export async function getCurrentUserPartnerReferralRecords() {
   }
 
   return snapshot.docs
-    .map((docSnapshot) => {
+    .map((docSnapshot: FirestoreDocSnapshot) => {
       const data = docSnapshot.data() as Record<string, unknown>;
       return {
         id: docSnapshot.id,
@@ -1005,7 +1005,9 @@ export async function getCurrentAmbassadorStats(): Promise<AmbassadorStats> {
     query(collection(db!, "inviteCodes"), where("createdBy", "==", auth!.currentUser!.uid), limit(50))
   );
 
-  const invites = snapshot.docs.map((docSnapshot) => docSnapshot.data() as Record<string, unknown>);
+  const invites = snapshot.docs.map(
+    (docSnapshot: FirestoreDocSnapshot) => docSnapshot.data() as Record<string, unknown>
+  );
   const topEntry = invites
     .map((entry) => ({
       code: String(entry.code ?? ""),
