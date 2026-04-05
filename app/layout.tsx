@@ -14,6 +14,11 @@ export const metadata: Metadata = {
   title: "HoopLink - Sports Social Media",
   description: "Connect with athletes, coaches, and scouts",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+    shortcut: "/icon.svg",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
