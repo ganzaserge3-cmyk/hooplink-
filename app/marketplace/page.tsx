@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -362,7 +362,9 @@ function MarketplacePageContent() {
 export default function MarketplacePage() {
   return (
     <AuthProvider>
-      <MarketplacePageContent />
+      <Suspense fallback={null}>
+        <MarketplacePageContent />
+      </Suspense>
     </AuthProvider>
   );
 }

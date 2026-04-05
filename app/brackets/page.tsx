@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { AuthProvider } from "@/components/AuthProvider";
@@ -123,7 +123,9 @@ function BracketsPageContent() {
 export default function BracketsPage() {
   return (
     <AuthProvider>
-      <BracketsPageContent />
+      <Suspense fallback={null}>
+        <BracketsPageContent />
+      </Suspense>
     </AuthProvider>
   );
 }

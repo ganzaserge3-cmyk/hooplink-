@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
@@ -383,7 +383,9 @@ function RecruitingPageContent() {
 export default function RecruitingPage() {
   return (
     <AuthProvider>
-      <RecruitingPageContent />
+      <Suspense fallback={null}>
+        <RecruitingPageContent />
+      </Suspense>
     </AuthProvider>
   );
 }

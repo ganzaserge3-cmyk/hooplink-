@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, MapPin, UserCircle2 } from "lucide-react";
 
@@ -19,7 +19,7 @@ import {
 
 const allowedRoles: HoopLinkRole[] = ["athlete", "coach", "scout", "fan"];
 
-export default function CompleteProfilePage() {
+function CompleteProfilePageContent() {
   const draftStorageKey = "hooplink_complete_profile_draft";
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -430,5 +430,13 @@ export default function CompleteProfilePage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function CompleteProfilePage() {
+  return (
+    <Suspense fallback={null}>
+      <CompleteProfilePageContent />
+    </Suspense>
   );
 }

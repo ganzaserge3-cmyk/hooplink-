@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
@@ -288,7 +288,9 @@ function StoriesPageContent() {
 export default function StoriesPage() {
   return (
     <AuthProvider>
-      <StoriesPageContent />
+      <Suspense fallback={null}>
+        <StoriesPageContent />
+      </Suspense>
     </AuthProvider>
   );
 }

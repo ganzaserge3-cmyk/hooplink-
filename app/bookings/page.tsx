@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { AuthProvider, useAuthContext } from "@/components/AuthProvider";
@@ -347,7 +347,9 @@ function BookingsPageContent() {
 export default function BookingsPage() {
   return (
     <AuthProvider>
-      <BookingsPageContent />
+      <Suspense fallback={null}>
+        <BookingsPageContent />
+      </Suspense>
     </AuthProvider>
   );
 }

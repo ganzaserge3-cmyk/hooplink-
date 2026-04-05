@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { Archive, ArrowLeft, Bell, Bookmark, CalendarDays, Clock3, FileText, Forward, Hand, ImagePlus, MapPin, MessageCircleReply, Mic, Pencil, Phone, Pin, Search, SendHorizontal, Sparkles, Star, Trash2, Video, Vote, ShieldAlert, BarChart3 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -437,4 +437,10 @@ function MessagesPageContent() {
   );
 }
 
-export default function MessagesPage() { return <MessagesPageContent />; }
+export default function MessagesPage() {
+  return (
+    <Suspense fallback={null}>
+      <MessagesPageContent />
+    </Suspense>
+  );
+}

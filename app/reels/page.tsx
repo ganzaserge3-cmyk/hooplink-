@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Check, ChevronDown, ChevronUp, Heart, MessageCircle, Save, Send, Share2, Volume2, VolumeX } from "lucide-react";
@@ -436,7 +436,9 @@ function ReelsPageContent() {
 export default function ReelsPage() {
   return (
     <AuthProvider>
-      <ReelsPageContent />
+      <Suspense fallback={null}>
+        <ReelsPageContent />
+      </Suspense>
     </AuthProvider>
   );
 }
