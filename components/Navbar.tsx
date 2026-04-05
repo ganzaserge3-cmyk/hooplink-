@@ -83,6 +83,18 @@ export default function Navbar() {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [pushEnabled, setPushEnabled] = useState(false);
   const previousNotificationIds = useRef<string[]>([]);
+  const mobileMenuRef = useRef<HTMLDetailsElement | null>(null);
+  const workspaceMenuRef = useRef<HTMLDetailsElement | null>(null);
+
+  const closeWorkspaceMenus = () => {
+    if (mobileMenuRef.current) {
+      mobileMenuRef.current.open = false;
+    }
+
+    if (workspaceMenuRef.current) {
+      workspaceMenuRef.current.open = false;
+    }
+  };
 
   useEffect(() => {
     if (!user) {
@@ -175,7 +187,7 @@ export default function Navbar() {
                     ) : null}
                   </Link>
                 </Button>
-                <details className="relative lg:hidden">
+                <details ref={mobileMenuRef} className="relative lg:hidden">
                   <summary className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-md border">
                     <Menu className="h-5 w-5" />
                   </summary>
@@ -190,7 +202,7 @@ export default function Navbar() {
                             const Icon = item.icon;
                             return (
                               <Button key={item.href} variant="ghost" size="sm" asChild className="justify-start">
-                                <Link href={item.href}>
+                                <Link href={item.href} onClick={closeWorkspaceMenus}>
                                   {Icon ? <Icon className="mr-2 h-4 w-4" /> : null}
                                   {item.label}
                                 </Link>
@@ -209,8 +221,8 @@ export default function Navbar() {
                             {group.items.map((item) => {
                               const Icon = item.icon;
                               return (
-                                <Button key={item.href} variant="ghost" size="sm" asChild className="justify-start">
-                                  <Link href={item.href}>
+                              <Button key={item.href} variant="ghost" size="sm" asChild className="justify-start">
+                                  <Link href={item.href} onClick={closeWorkspaceMenus}>
                                     {Icon ? <Icon className="mr-2 h-4 w-4" /> : null}
                                     {item.label}
                                   </Link>
@@ -224,14 +236,14 @@ export default function Navbar() {
                       <div className="grid grid-cols-2 gap-2 border-t pt-3">
                         {isCurrentUserAdmin() ? (
                           <Button variant="ghost" size="sm" asChild className="justify-start">
-                            <Link href="/admin">
+                            <Link href="/admin" onClick={closeWorkspaceMenus}>
                               <Shield className="mr-2 h-4 w-4" />
                               Admin
                             </Link>
                           </Button>
                         ) : null}
                         <Button variant="ghost" size="sm" asChild className="justify-start">
-                          <Link href="/settings">
+                          <Link href="/settings" onClick={closeWorkspaceMenus}>
                             <Settings className="mr-2 h-4 w-4" />
                             Settings
                           </Link>
@@ -275,7 +287,7 @@ export default function Navbar() {
                   <Link href="/upload">Create</Link>
                 </Button>
               </div>
-              <details className="relative hidden lg:block">
+              <details ref={workspaceMenuRef} className="relative hidden lg:block">
                 <summary className="flex h-9 cursor-pointer list-none items-center gap-2 rounded-md border px-3 text-sm font-medium">
                   Workspaces
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -292,7 +304,7 @@ export default function Navbar() {
                             const Icon = item.icon;
                             return (
                               <Button key={item.href} variant="ghost" size="sm" asChild className="justify-start">
-                                <Link href={item.href}>
+                                <Link href={item.href} onClick={closeWorkspaceMenus}>
                                   {Icon ? <Icon className="mr-2 h-4 w-4" /> : null}
                                   {item.label}
                                 </Link>
