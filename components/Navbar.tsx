@@ -82,18 +82,15 @@ export default function Navbar() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [pushEnabled, setPushEnabled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
   const previousNotificationIds = useRef<string[]>([]);
-  const mobileMenuRef = useRef<HTMLDetailsElement | null>(null);
-  const workspaceMenuRef = useRef<HTMLDetailsElement | null>(null);
+  const mobileMenuRef = useRef<HTMLDivElement | null>(null);
+  const workspaceMenuRef = useRef<HTMLDivElement | null>(null);
 
   const closeWorkspaceMenus = () => {
-    if (mobileMenuRef.current) {
-      mobileMenuRef.current.open = false;
-    }
-
-    if (workspaceMenuRef.current) {
-      workspaceMenuRef.current.open = false;
-    }
+    setMobileMenuOpen(false);
+    setWorkspaceMenuOpen(false);
   };
 
   useEffect(() => {
@@ -139,6 +136,23 @@ export default function Navbar() {
   useEffect(() => {
     closeWorkspaceMenus();
   }, [pathname]);
+
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target as Node;
+
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(target)) {
+        setMobileMenuOpen(false);
+      }
+
+      if (workspaceMenuRef.current && !workspaceMenuRef.current.contains(target)) {
+        setWorkspaceMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, []);
 
   const unreadCount = user
     ? notifications.filter((notification) => !notification.readBy?.includes(user.uid)).length
@@ -191,11 +205,18 @@ export default function Navbar() {
                     ) : null}
                   </Link>
                 </Button>
-                <details ref={mobileMenuRef} className="relative lg:hidden">
-                  <summary className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-md border">
+                <div ref={mobileMenuRef} className="relative lg:hidden">
+                  <button
+                    type="button"
+                    onClick={() => setMobileMenuOpen((current) => !current)}
+                    className="flex h-10 w-10 items-center justify-center rounded-md border"
+                    aria-label="Open menu"
+                    aria-expanded={mobileMenuOpen}
+                  >
                     <Menu className="h-5 w-5" />
-                  </summary>
-                  <div className="absolute right-0 top-12 z-50 w-[min(92vw,380px)] rounded-2xl border bg-background p-4 shadow-lg">
+                  </button>
+                  {mobileMenuOpen ? (
+                    <div className="absolute right-0 top-12 z-50 w-[min(92vw,380px)] rounded-2xl border bg-background p-4 shadow-lg">
                     <div className="space-y-4">
                       <div>
                         <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -267,8 +288,9 @@ export default function Navbar() {
                         </Button>
                       </div>
                     </div>
-                  </div>
-                </details>
+                    </div>
+                  ) : null}
+                </div>
               </div>
               <div className="hidden items-center gap-1 xl:flex">
                 {primaryNav.map((item) => {
@@ -291,12 +313,18 @@ export default function Navbar() {
                   <Link href="/upload">Create</Link>
                 </Button>
               </div>
-              <details ref={workspaceMenuRef} className="relative hidden lg:block">
-                <summary className="flex h-9 cursor-pointer list-none items-center gap-2 rounded-md border px-3 text-sm font-medium">
+              <div ref={workspaceMenuRef} className="relative hidden lg:block">
+                <button
+                  type="button"
+                  onClick={() => setWorkspaceMenuOpen((current) => !current)}
+                  className="flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium"
+                  aria-expanded={workspaceMenuOpen}
+                >
                   Workspaces
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                </summary>
-                <div className="absolute right-0 top-11 z-50 w-[420px] rounded-xl border bg-background p-4 shadow-lg">
+                </button>
+                {workspaceMenuOpen ? (
+                  <div className="absolute right-0 top-11 z-50 w-[420px] rounded-xl border bg-background p-4 shadow-lg">
                   <div className="space-y-4">
                     {workspaceGroups.map((group) => (
                       <div key={group.label}>
@@ -319,8 +347,9 @@ export default function Navbar() {
                       </div>
                     ))}
                   </div>
-                </div>
-              </details>
+                  </div>
+                ) : null}
+              </div>
               {isCurrentUserAdmin() ? (
                 <Button variant="ghost" size="sm" asChild className="hidden lg:inline-flex">
                   <Link href="/admin">
