@@ -15,6 +15,7 @@ import { reportEntity, toggleBlockedUser } from "@/lib/moderation";
 import { subscribeToUserPosts, type FeedPost } from "@/lib/posts";
 import { recordProfileVisit } from "@/lib/profile-analytics";
 import { createPriorityInboxRequest, getCreatorMerchProducts, type MerchProductRecord } from "@/lib/phase6";
+import { getStoryHighlightCollectionsForUser, type StoryHighlightCollectionWithStories } from "@/lib/stories";
 import { getUserProfileById, toggleFollowUser } from "@/lib/user-profile";
 import { buildSiteUrl } from "@/lib/site";
 
@@ -247,6 +248,7 @@ export default function PublicProfilePage({ params }: { params: { uid: string } 
   const [merchProducts, setMerchProducts] = useState<MerchProductRecord[]>([]);
   const [contentView, setContentView] = useState<"posts" | "reels">("posts");
   const [profileTab, setProfileTab] = useState<"overview" | "media" | "recruiting" | "team" | "career">("overview");
+  const [storyHighlights, setStoryHighlights] = useState<StoryHighlightCollectionWithStories[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -268,6 +270,11 @@ export default function PublicProfilePage({ params }: { params: { uid: string } 
     void getCreatorMerchProducts(params.uid).then((items) => {
       if (!cancelled) {
         setMerchProducts(items);
+      }
+    });
+    void getStoryHighlightCollectionsForUser(params.uid).then((collections) => {
+      if (!cancelled) {
+        setStoryHighlights(collections);
       }
     });
 
@@ -574,7 +581,7 @@ export default function PublicProfilePage({ params }: { params: { uid: string } 
 
       <div className="mt-6 rounded-xl border p-4">
         {profileTab === "overview" ? (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-3">
             <div className="rounded-xl bg-muted p-4">
               <p className="font-semibold">Identity Snapshot</p>
               <div className="mt-3 flex flex-wrap gap-2 text-sm">
@@ -599,6 +606,38 @@ export default function PublicProfilePage({ params }: { params: { uid: string } 
         {profileTab === "media" ? (
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="rounded-xl bg-muted p-4 text-sm">Intro video, audio intro, sponsorship deck, QR card, and share card tools are active on this profile.</div>
+            <div className="rounded-xl bg-muted p-4">
+              <p className="font-semibold">Story Highlights</p>
+              {storyHighlights.length ? (
+                <div className="mt-3 space-y-3">
+                  {storyHighlights.slice(0, 4).map((collection) => (
+                    <div key={collection.id} className="rounded-xl border bg-background p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-medium">{collection.title}</p>
+                        <span className="text-xs text-muted-foreground">{collection.stories.length} stories</span>
+                      </div>
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        {collection.stories.slice(0, 3).map((story) => (
+                          <div key={story.id} className="overflow-hidden rounded-lg bg-muted">
+                            {story.mediaType === "video" ? (
+                              <video src={story.mediaUrl} className="aspect-square w-full object-cover" />
+                            ) : story.mediaType === "text" ? (
+                              <div className="aspect-square bg-gradient-to-br from-orange-500 via-rose-500 to-slate-900 p-3 text-xs font-semibold text-white">
+                                {story.textCard?.title || story.caption || collection.title}
+                              </div>
+                            ) : (
+                              <img src={story.mediaUrl} alt={story.caption || collection.title} className="aspect-square w-full object-cover" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-muted-foreground">No public story highlights featured yet.</p>
+              )}
+            </div>
             <div className="rounded-xl bg-muted p-4 text-sm">
               {(profile.profileCommunity?.favoriteBrands ?? []).concat(profile.profileCommunity?.sponsorshipInterests ?? []).join(" • ") || "No brand preferences listed."}
             </div>

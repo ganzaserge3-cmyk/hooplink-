@@ -14,6 +14,16 @@ import { getOwnedPremiumGroups, type PremiumGroupRecord } from "@/lib/creator-hu
 import { deleteUploadDraft, getUploadDrafts, saveUploadDraft } from "@/lib/drafts";
 import { getCreatorToolkitProfile, saveCreatorToolkitProfile, type CreatorToolkitProfile } from "@/lib/media-lab";
 import { createPost, getCurrentUserSport } from "@/lib/posts";
+import { searchProfiles, type SearchProfile } from "@/lib/user-profile";
+
+const UPLOAD_PRESETS = [
+  { value: "highlight", label: "Highlight clip", contentType: "reel", postType: "standard", caption: "New highlight drop", visibility: "public" },
+  { value: "recruiting", label: "Recruiting update", contentType: "post", postType: "standard", caption: "Recruiting update", visibility: "public" },
+  { value: "team", label: "Team post", contentType: "post", postType: "standard", caption: "Team update", visibility: "public" },
+  { value: "poll", label: "Poll", contentType: "post", postType: "poll", caption: "What do you think?", visibility: "public" },
+  { value: "qa", label: "Q&A", contentType: "post", postType: "qa", caption: "Drop your answer below.", visibility: "public" },
+  { value: "sponsor", label: "Sponsor drop", contentType: "post", postType: "standard", caption: "Partner spotlight", visibility: "public", sponsored: true },
+] as const;
 
 const ADVANCED_STUDIO_FIELDS = [
   { key: "sceneDetection", label: "Scene detection" },
@@ -116,7 +126,7 @@ function UploadPageContent() {
   const [rightClickProtected, setRightClickProtected] = useState(false);
   const [premiumGroups, setPremiumGroups] = useState<PremiumGroupRecord[]>([]);
   const [toolkitProfile, setToolkitProfile] = useState<CreatorToolkitProfile | null>(null);
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [previewUrl, setPreviewUrl] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -144,6 +154,25 @@ function UploadPageContent() {
   const [recruitingPackForm, setRecruitingPackForm] = useState({ title: "", audience: "", summary: "" });
   const [calendarForm, setCalendarForm] = useState({ title: "", publishAt: "", platform: "HoopLink" });
   const [advancedStudioMeta, setAdvancedStudioMeta] = useState<Record<string, string>>({});
+  const [composerMode, setComposerMode] = useState<"simple" | "advanced">("simple");
+  const [selectedPreset, setSelectedPreset] = useState<(typeof UPLOAD_PRESETS)[number]["value"]>("highlight");
+  const [recentDrafts, setRecentDrafts] = useState<Array<{ id: string; caption: string; contentType: "post" | "reel" }>>([]);
+  const [showCreatorTools, setShowCreatorTools] = useState(false);
+  const [profiles, setProfiles] = useState<SearchProfile[]>([]);
+  const [collaboratorSearch, setCollaboratorSearch] = useState("");
+  const [selectedCollaboratorIds, setSelectedCollaboratorIds] = useState<string[]>([]);
+  const [publishProgress, setPublishProgress] = useState(0);
+  const [publishStatus, setPublishStatus] = useState("");
+  const [failedFiles, setFailedFiles] = useState<string[]>([]);
+  const [uploadMode, setUploadMode] = useState<"standard" | "recruiting" | "drill_breakdown" | "before_after" | "stat_card" | "tryout_tape">("standard");
+  const [recruitingMeta, setRecruitingMeta] = useState({ position: "", gradYear: "", height: "", team: "", bestSkills: "", coachContactCta: "" });
+  const [drillMeta, setDrillMeta] = useState({ drillName: "", goal: "", coachingPoints: "", mistakesToAvoid: "" });
+  const [beforeAfterMeta, setBeforeAfterMeta] = useState({ beforeLabel: "", afterLabel: "", improvementNote: "" });
+  const [statCardMeta, setStatCardMeta] = useState({ headline: "", statOneLabel: "", statOneValue: "", statTwoLabel: "", statTwoValue: "", statThreeLabel: "", statThreeValue: "" });
+  const [coachFeedbackMeta, setCoachFeedbackMeta] = useState({ enabled: false, prompt: "" });
+  const [tryoutTapeMeta, setTryoutTapeMeta] = useState({ roleFocus: "", strengths: "", introLine: "" });
+  const [verifiedSessionMeta, setVerifiedSessionMeta] = useState({ enabled: false, sessionType: "", sessionLabel: "", verifiedBy: "" });
+  const [clipRequestMeta, setClipRequestMeta] = useState({ requestType: "", requesterId: "", requesterLabel: "", requestNote: "" });
 
   useEffect(() => {
     if (!user) {
@@ -157,6 +186,8 @@ function UploadPageContent() {
           setSport(savedSport);
         }
       })
+      .then(() => searchProfiles(""))
+      .then(setProfiles)
       .then(() => getOwnedPremiumGroups())
       .then(setPremiumGroups)
       .then(() => getCreatorToolkitProfile())
@@ -172,18 +203,18 @@ function UploadPageContent() {
   }, [user]);
 
   useEffect(() => {
-    if (!file) {
+    if (!files[0]) {
       setPreviewUrl("");
       return;
     }
 
-    const nextPreviewUrl = URL.createObjectURL(file);
+    const nextPreviewUrl = URL.createObjectURL(files[0]);
     setPreviewUrl(nextPreviewUrl);
 
     return () => {
       URL.revokeObjectURL(nextPreviewUrl);
     };
-  }, [file]);
+  }, [files]);
 
   useEffect(() => {
     const draftId = searchParams.get("draft");
@@ -230,6 +261,7 @@ function UploadPageContent() {
       setQuestionPrompt(draft.questionPrompt ?? "");
       setPollOptions(draft.pollOptions?.length ? draft.pollOptions : ["", ""]);
       setCollaborators((draft.collaborators ?? []).join(", "));
+      setSelectedCollaboratorIds(draft.collaborators ?? []);
       setScheduledFor(draft.scheduledFor ?? "");
       setRemixPostId(draft.remixPostId ?? "");
       setVisibility(draft.visibility ?? "public");
@@ -251,15 +283,81 @@ function UploadPageContent() {
     });
   }, [caption, loadedDraftId, remixPostId, searchParams]);
 
+  useEffect(() => {
+    void getUploadDrafts().then((drafts) => {
+      setRecentDrafts(
+        drafts.slice(0, 3).map((draft: { id: string; caption: string; contentType: "post" | "reel" }) => ({
+          id: draft.id,
+          caption: draft.caption,
+          contentType: draft.contentType,
+        }))
+      );
+    });
+  }, [loadedDraftId]);
+
   const mediaKind = useMemo(() => {
-    if (!file) return null;
-    return file.type.startsWith("video/") ? "video" : "image";
-  }, [file]);
+    if (!files[0]) return null;
+    return files[0].type.startsWith("video/") ? "video" : "image";
+  }, [files]);
+
+  const uploadChecklist = useMemo(
+    () => [
+      { label: "Media selected", done: files.length > 0 },
+      { label: "Caption ready", done: caption.trim().length > 0 },
+      { label: "Sport selected", done: sport.trim().length > 0 },
+      { label: "Visibility chosen", done: visibility === "public" || visibility === "subscribers" || (visibility === "premium_group" && premiumGroupId.trim().length > 0) },
+    ],
+    [caption, files.length, premiumGroupId, sport, visibility]
+  );
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const nextFile = event.target.files?.[0] ?? null;
+    const nextFiles = Array.from(event.target.files ?? []);
     setError("");
-    setFile(nextFile);
+    setFiles(nextFiles);
+    setFailedFiles([]);
+  };
+
+  const selectedCollaborators = useMemo(
+    () =>
+      selectedCollaboratorIds
+        .map((id) => profiles.find((profile) => profile.uid === id))
+        .filter((profile): profile is SearchProfile => Boolean(profile)),
+    [profiles, selectedCollaboratorIds]
+  );
+
+  const collaboratorMatches = useMemo(
+    () =>
+      profiles.filter(
+        (profile) =>
+          profile.uid !== user?.uid &&
+          !selectedCollaboratorIds.includes(profile.uid) &&
+          (!collaboratorSearch.trim() ||
+            `${profile.displayName} ${profile.username || ""} ${profile.role?.team || ""} ${profile.role?.sport || ""}`
+              .toLowerCase()
+              .includes(collaboratorSearch.trim().toLowerCase()))
+      ),
+    [collaboratorSearch, profiles, selectedCollaboratorIds, user?.uid]
+  );
+
+  const applyPreset = (presetValue: (typeof UPLOAD_PRESETS)[number]["value"]) => {
+    const preset = UPLOAD_PRESETS.find((item) => item.value === presetValue);
+    if (!preset) {
+      return;
+    }
+
+    setSelectedPreset(presetValue);
+    setContentType(preset.contentType);
+    setPostType(preset.postType);
+    setCaption((current) => current || preset.caption);
+    setVisibility(preset.visibility);
+    setSponsored(Boolean("sponsored" in preset && preset.sponsored));
+    setUploadMode(presetValue === "recruiting" ? "recruiting" : presetValue === "highlight" ? "tryout_tape" : "standard");
+    if (preset.postType === "poll") {
+      setPollOptions((current) => (current.length >= 2 ? current : ["Option 1", "Option 2"]));
+    }
+    if (preset.postType === "qa") {
+      setQuestionPrompt((current) => current || "Ask your community something specific.");
+    }
   };
 
   const runMediaAssist = async (task: "caption_rewrite" | "hashtags" | "translate" | "voiceover" | "thumbnail") => {
@@ -304,12 +402,14 @@ function UploadPageContent() {
     event.preventDefault();
     setError("");
 
-    if (contentType === "reel" && !file) {
+    const primaryFile = files[0] ?? null;
+
+    if (contentType === "reel" && !primaryFile) {
       setError("Choose a video to upload.");
       return;
     }
 
-    if (contentType === "reel" && file && !file.type.startsWith("video/")) {
+    if (contentType === "reel" && primaryFile && !primaryFile.type.startsWith("video/")) {
       setError("Reels must use a video file.");
       return;
     }
@@ -320,20 +420,38 @@ function UploadPageContent() {
     }
 
     setSubmitting(true);
+    setPublishProgress(0);
+    setPublishStatus("");
+    setFailedFiles([]);
 
     try {
+      const collaboratorTokens = selectedCollaboratorIds.length
+        ? selectedCollaboratorIds
+        : collaborators
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean);
+      const publishableFiles = files.length ? files : [];
+      const totalSteps = Math.max(publishableFiles.length + 1, 2);
+      setPublishStatus(
+        scheduledFor.trim()
+          ? "Queueing your post for scheduled publishing..."
+          : publishableFiles.length > 1
+            ? "Uploading carousel media..."
+            : "Uploading your post..."
+      );
+
+      setPublishProgress(10);
       await createPost({
         caption,
         sport,
-        file,
+        file: publishableFiles[0] ?? null,
+        files: publishableFiles,
         contentType,
         postType,
         questionPrompt,
         pollOptions,
-        collaborators: collaborators
-          .split(",")
-          .map((value) => value.trim())
-          .filter(Boolean),
+        collaborators: collaboratorTokens,
         remixPostId,
         scheduledFor,
         visibility,
@@ -351,12 +469,89 @@ function UploadPageContent() {
         watermarkEnabled,
         downloadProtected,
         rightClickProtected,
+        uploadMeta: {
+          mode: uploadMode,
+          recruitingProfile:
+            uploadMode === "recruiting"
+              ? {
+                  position: recruitingMeta.position,
+                  gradYear: recruitingMeta.gradYear,
+                  height: recruitingMeta.height,
+                  team: recruitingMeta.team,
+                  bestSkills: recruitingMeta.bestSkills.split(",").map((value) => value.trim()).filter(Boolean),
+                  coachContactCta: recruitingMeta.coachContactCta,
+                }
+              : null,
+          drillBreakdown:
+            uploadMode === "drill_breakdown"
+              ? {
+                  drillName: drillMeta.drillName,
+                  goal: drillMeta.goal,
+                  coachingPoints: drillMeta.coachingPoints.split(",").map((value) => value.trim()).filter(Boolean),
+                  mistakesToAvoid: drillMeta.mistakesToAvoid.split(",").map((value) => value.trim()).filter(Boolean),
+                }
+              : null,
+          beforeAfter:
+            uploadMode === "before_after"
+              ? {
+                  beforeLabel: beforeAfterMeta.beforeLabel,
+                  afterLabel: beforeAfterMeta.afterLabel,
+                  improvementNote: beforeAfterMeta.improvementNote,
+                }
+              : null,
+          statCard:
+            uploadMode === "stat_card"
+              ? {
+                  headline: statCardMeta.headline,
+                  stats: [
+                    { label: statCardMeta.statOneLabel, value: statCardMeta.statOneValue },
+                    { label: statCardMeta.statTwoLabel, value: statCardMeta.statTwoValue },
+                    { label: statCardMeta.statThreeLabel, value: statCardMeta.statThreeValue },
+                  ].filter((entry) => entry.label.trim() || entry.value.trim()),
+                }
+              : null,
+          coachFeedback: {
+            enabled: coachFeedbackMeta.enabled,
+            requestedCoachIds: selectedCollaboratorIds.filter((id) => {
+              const profile = profiles.find((entry) => entry.uid === id);
+              return profile?.role?.type?.toLowerCase() === "coach";
+            }),
+            prompt: coachFeedbackMeta.prompt,
+          },
+          tryoutTape:
+            uploadMode === "tryout_tape"
+              ? {
+                  roleFocus: tryoutTapeMeta.roleFocus,
+                  strengths: tryoutTapeMeta.strengths.split(",").map((value) => value.trim()).filter(Boolean),
+                  introLine: tryoutTapeMeta.introLine,
+                }
+              : null,
+          verifiedSession: {
+            enabled: verifiedSessionMeta.enabled,
+            sessionType: verifiedSessionMeta.sessionType,
+            sessionLabel: verifiedSessionMeta.sessionLabel,
+            verifiedBy: verifiedSessionMeta.verifiedBy,
+          },
+          clipRequest:
+            clipRequestMeta.requestType || clipRequestMeta.requesterId || clipRequestMeta.requestNote
+              ? {
+                  requestType: clipRequestMeta.requestType,
+                  requesterId: clipRequestMeta.requesterId,
+                  requesterLabel: clipRequestMeta.requesterLabel,
+                  requestNote: clipRequestMeta.requestNote,
+                }
+              : null,
+        },
       });
+      setPublishProgress(Math.round((totalSteps - 1) / totalSteps * 100));
+      setPublishStatus(scheduledFor.trim() ? "Added to your publishing queue." : "Published successfully.");
+      setPublishProgress(100);
       if (loadedDraftId) {
         await deleteUploadDraft(loadedDraftId);
       }
       router.push(contentType === "reel" ? "/reels" : "/feed");
     } catch (err) {
+      setFailedFiles(files.map((currentFile) => currentFile.name));
       setError(err instanceof Error ? err.message : "Your upload could not be published.");
     } finally {
       setSubmitting(false);
@@ -373,7 +568,7 @@ function UploadPageContent() {
 
   return (
     <ProtectedRoute>
-      <div className="mx-auto max-w-2xl py-8">
+      <div className="mx-auto max-w-3xl py-8">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -381,11 +576,69 @@ function UploadPageContent() {
               Create content
             </CardTitle>
             <CardDescription>
-              Publish a standard post or a reel using the same media pipeline.
+              Start simple, then open advanced tools only when you need them.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form className="space-y-5" onSubmit={handleSubmit}>
+              {recentDrafts.length ? (
+                <div className="rounded-xl border bg-muted/30 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="font-medium">Draft recovery</p>
+                      <p className="text-sm text-muted-foreground">Jump back into a saved draft or start fresh.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {recentDrafts.map((draft) => (
+                        <Link key={draft.id} href={`/upload?draft=${draft.id}`} className="rounded-full border px-3 py-2 text-sm hover:bg-muted/40">
+                          {draft.contentType === "reel" ? "Reel" : "Post"}: {draft.caption || "Untitled"}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
+                <div>
+                  <p className="font-medium">Composer mode</p>
+                  <p className="text-sm text-muted-foreground">Keep the default flow light, or open the full toolkit.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted p-1">
+                  <button
+                    type="button"
+                    onClick={() => setComposerMode("simple")}
+                    className={`rounded-lg px-3 py-2 text-sm ${composerMode === "simple" ? "bg-background shadow-sm" : "text-muted-foreground"}`}
+                  >
+                    Simple
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setComposerMode("advanced")}
+                    className={`rounded-lg px-3 py-2 text-sm ${composerMode === "advanced" ? "bg-background shadow-sm" : "text-muted-foreground"}`}
+                  >
+                    Advanced
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-xl border p-4">
+                <p className="mb-3 font-medium">Quick presets</p>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {UPLOAD_PRESETS.map((preset) => (
+                    <button
+                      key={preset.value}
+                      type="button"
+                      onClick={() => applyPreset(preset.value)}
+                      className={`rounded-xl border p-3 text-left ${selectedPreset === preset.value ? "border-primary bg-primary/5" : ""}`}
+                    >
+                      <p className="font-semibold">{preset.label}</p>
+                      <p className="text-sm text-muted-foreground">{preset.contentType === "reel" ? "Video-first" : "Feed-ready"}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
@@ -431,6 +684,7 @@ function UploadPageContent() {
                 type="file"
                 accept={contentType === "reel" ? "video/*" : "image/*,video/*"}
                 onChange={handleFileChange}
+                multiple
                 disabled={submitting}
               />
 
@@ -457,6 +711,96 @@ function UploadPageContent() {
                   </p>
                 </div>
               )}
+
+              {files.length > 1 ? (
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
+                  {files.length} files selected. HoopLink will publish them as one {contentType === "reel" ? "multi-clip reel" : "carousel post"} with swipeable media.
+                </div>
+              ) : null}
+
+              <div className="rounded-xl border p-4">
+                <p className="mb-3 font-medium">HoopLink upload mode</p>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {([
+                    { value: "standard", label: "Standard upload", hint: "Normal post or reel" },
+                    { value: "recruiting", label: "Recruiting mode", hint: "Position, grad year, skills" },
+                    { value: "drill_breakdown", label: "Drill breakdown", hint: "Goal, cues, mistakes" },
+                    { value: "before_after", label: "Before / after", hint: "Progress transformation" },
+                    { value: "stat_card", label: "Auto stat card", hint: "Numbers-first post" },
+                    { value: "tryout_tape", label: "Tryout tape", hint: "Role focus and strengths" },
+                  ] as const).map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setUploadMode(option.value)}
+                      className={`rounded-xl border p-3 text-left ${uploadMode === option.value ? "border-primary bg-primary/5" : ""}`}
+                    >
+                      <p className="font-semibold">{option.label}</p>
+                      <p className="text-sm text-muted-foreground">{option.hint}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {uploadMode !== "standard" ? (
+                <div className="rounded-xl border p-4">
+                  <p className="mb-3 font-medium">Mode details</p>
+                  {uploadMode === "recruiting" ? (
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <Input value={recruitingMeta.position} onChange={(event) => setRecruitingMeta((current) => ({ ...current, position: event.target.value }))} placeholder="Position" />
+                      <Input value={recruitingMeta.gradYear} onChange={(event) => setRecruitingMeta((current) => ({ ...current, gradYear: event.target.value }))} placeholder="Grad year" />
+                      <Input value={recruitingMeta.height} onChange={(event) => setRecruitingMeta((current) => ({ ...current, height: event.target.value }))} placeholder="Height" />
+                      <Input value={recruitingMeta.team} onChange={(event) => setRecruitingMeta((current) => ({ ...current, team: event.target.value }))} placeholder="Team" />
+                      <Input value={recruitingMeta.bestSkills} onChange={(event) => setRecruitingMeta((current) => ({ ...current, bestSkills: event.target.value }))} placeholder="Best skills, comma separated" />
+                      <Input value={recruitingMeta.coachContactCta} onChange={(event) => setRecruitingMeta((current) => ({ ...current, coachContactCta: event.target.value }))} placeholder="Coach contact CTA" />
+                    </div>
+                  ) : null}
+                  {uploadMode === "drill_breakdown" ? (
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <Input value={drillMeta.drillName} onChange={(event) => setDrillMeta((current) => ({ ...current, drillName: event.target.value }))} placeholder="Drill name" />
+                      <Input value={drillMeta.goal} onChange={(event) => setDrillMeta((current) => ({ ...current, goal: event.target.value }))} placeholder="Goal" />
+                      <Input value={drillMeta.coachingPoints} onChange={(event) => setDrillMeta((current) => ({ ...current, coachingPoints: event.target.value }))} placeholder="Coaching points, comma separated" />
+                      <Input value={drillMeta.mistakesToAvoid} onChange={(event) => setDrillMeta((current) => ({ ...current, mistakesToAvoid: event.target.value }))} placeholder="Mistakes to avoid, comma separated" />
+                    </div>
+                  ) : null}
+                  {uploadMode === "before_after" ? (
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <Input value={beforeAfterMeta.beforeLabel} onChange={(event) => setBeforeAfterMeta((current) => ({ ...current, beforeLabel: event.target.value }))} placeholder="Before label" />
+                      <Input value={beforeAfterMeta.afterLabel} onChange={(event) => setBeforeAfterMeta((current) => ({ ...current, afterLabel: event.target.value }))} placeholder="After label" />
+                      <textarea value={beforeAfterMeta.improvementNote} onChange={(event) => setBeforeAfterMeta((current) => ({ ...current, improvementNote: event.target.value }))} placeholder="Improvement note" className="min-h-20 rounded-md border border-input bg-background px-3 py-2 text-sm md:col-span-2" />
+                    </div>
+                  ) : null}
+                  {uploadMode === "stat_card" ? (
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <Input value={statCardMeta.headline} onChange={(event) => setStatCardMeta((current) => ({ ...current, headline: event.target.value }))} placeholder="Headline" className="md:col-span-2" />
+                      <Input value={statCardMeta.statOneLabel} onChange={(event) => setStatCardMeta((current) => ({ ...current, statOneLabel: event.target.value }))} placeholder="Stat 1 label" />
+                      <Input value={statCardMeta.statOneValue} onChange={(event) => setStatCardMeta((current) => ({ ...current, statOneValue: event.target.value }))} placeholder="Stat 1 value" />
+                      <Input value={statCardMeta.statTwoLabel} onChange={(event) => setStatCardMeta((current) => ({ ...current, statTwoLabel: event.target.value }))} placeholder="Stat 2 label" />
+                      <Input value={statCardMeta.statTwoValue} onChange={(event) => setStatCardMeta((current) => ({ ...current, statTwoValue: event.target.value }))} placeholder="Stat 2 value" />
+                      <Input value={statCardMeta.statThreeLabel} onChange={(event) => setStatCardMeta((current) => ({ ...current, statThreeLabel: event.target.value }))} placeholder="Stat 3 label" />
+                      <Input value={statCardMeta.statThreeValue} onChange={(event) => setStatCardMeta((current) => ({ ...current, statThreeValue: event.target.value }))} placeholder="Stat 3 value" />
+                    </div>
+                  ) : null}
+                  {uploadMode === "tryout_tape" ? (
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <Input value={tryoutTapeMeta.roleFocus} onChange={(event) => setTryoutTapeMeta((current) => ({ ...current, roleFocus: event.target.value }))} placeholder="Role focus" />
+                      <Input value={tryoutTapeMeta.strengths} onChange={(event) => setTryoutTapeMeta((current) => ({ ...current, strengths: event.target.value }))} placeholder="Strengths, comma separated" />
+                      <textarea value={tryoutTapeMeta.introLine} onChange={(event) => setTryoutTapeMeta((current) => ({ ...current, introLine: event.target.value }))} placeholder="Intro line / opening pitch" className="min-h-20 rounded-md border border-input bg-background px-3 py-2 text-sm md:col-span-2" />
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {files.length > 1 ? (
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {files.map((file, index) => (
+                    <div key={`${file.name}-${index}`} className="rounded-xl border bg-muted/30 p-3 text-sm">
+                      <p className="truncate font-medium">{file.name}</p>
+                      <p className="text-xs text-muted-foreground">{file.type.startsWith("video/") ? "Video" : "Image"} • slide {index + 1}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
 
               {postType === "qa" && contentType === "post" ? (
                 <Input
@@ -504,12 +848,187 @@ function UploadPageContent() {
                 className="min-h-28 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               />
 
-              <Input
-                value={collaborators}
-                onChange={(event) => setCollaborators(event.target.value)}
-                placeholder="Collaboration tags, comma separated usernames"
-                disabled={submitting}
-              />
+              <div className="rounded-xl border p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium">Caption helper</p>
+                    <p className="text-sm text-muted-foreground">Keep AI assist together in one compact place.</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setAutoCaption(`${sport || "Sport"} highlight: ${caption || files[0]?.name || "Uploaded clip"}`)}
+                  >
+                    Quick fill
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" onClick={() => void runMediaAssist("caption_rewrite")} disabled={assistantLoading !== null}>
+                    {assistantLoading === "caption_rewrite" ? "Rewriting..." : "Rewrite"}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => void runMediaAssist("hashtags")} disabled={assistantLoading !== null}>
+                    {assistantLoading === "hashtags" ? "Suggesting..." : "Hashtags"}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => void runMediaAssist("translate")} disabled={assistantLoading !== null}>
+                    {assistantLoading === "translate" ? "Translating..." : "Translate"}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => void runMediaAssist("thumbnail")} disabled={assistantLoading !== null}>
+                    {assistantLoading === "thumbnail" ? "Picking..." : "Thumbnail"}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => void runMediaAssist("voiceover")} disabled={assistantLoading !== null}>
+                    {assistantLoading === "voiceover" ? "Writing..." : "Voiceover"}
+                  </Button>
+                </div>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <Input value={autoCaption} onChange={(event) => setAutoCaption(event.target.value)} placeholder="Auto-caption text" disabled={submitting} />
+                  <Input value={thumbnailHint} onChange={(event) => setThumbnailHint(event.target.value)} placeholder="Best thumbnail note" disabled={submitting} />
+                  <textarea
+                    value={translatedCaption}
+                    onChange={(event) => setTranslatedCaption(event.target.value)}
+                    placeholder="Translated caption"
+                    disabled={submitting}
+                    className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                  <textarea
+                    value={voiceoverScript}
+                    onChange={(event) => setVoiceoverScript(event.target.value)}
+                    placeholder="Voiceover script"
+                    disabled={submitting}
+                    className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-xl border p-4">
+                <p className="font-medium">Ready to publish?</p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {uploadChecklist.map((item) => (
+                    <div key={item.label} className={`rounded-lg border px-3 py-2 text-sm ${item.done ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "text-muted-foreground"}`}>
+                      {item.done ? "Done" : "Pending"}: {item.label}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {(uploadMode !== "standard" || coachFeedbackMeta.enabled || verifiedSessionMeta.enabled || clipRequestMeta.requestType) ? (
+                <div className="rounded-xl border bg-muted/20 p-4">
+                  <p className="font-medium">HoopLink sports summary</p>
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                    <span className="rounded-full bg-primary/5 px-2 py-1 text-primary">Mode: {uploadMode.replace("_", " ")}</span>
+                    {coachFeedbackMeta.enabled ? <span className="rounded-full bg-primary/5 px-2 py-1 text-primary">Coach feedback enabled</span> : null}
+                    {verifiedSessionMeta.enabled ? <span className="rounded-full bg-primary/5 px-2 py-1 text-primary">Verified session</span> : null}
+                    {clipRequestMeta.requestType ? <span className="rounded-full bg-primary/5 px-2 py-1 text-primary">Request: {clipRequestMeta.requestType}</span> : null}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="rounded-xl border p-4">
+                <div className="mb-3">
+                  <p className="font-medium">Collaborators</p>
+                  <p className="text-sm text-muted-foreground">Search people and add them as tagged collaborators.</p>
+                </div>
+                {selectedCollaborators.length ? (
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {selectedCollaborators.map((profile) => (
+                      <button
+                        key={profile.uid}
+                        type="button"
+                        className="rounded-full border bg-muted px-3 py-1.5 text-sm"
+                        onClick={() => setSelectedCollaboratorIds((current) => current.filter((id) => id !== profile.uid))}
+                      >
+                        {profile.displayName} {profile.username ? `(${profile.username})` : ""}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                <Input
+                  value={collaboratorSearch}
+                  onChange={(event) => setCollaboratorSearch(event.target.value)}
+                  placeholder="Search athletes, coaches, creators..."
+                  disabled={submitting}
+                />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {collaboratorMatches.slice(0, 8).map((profile) => (
+                    <button
+                      key={profile.uid}
+                      type="button"
+                      className="rounded-full border px-3 py-1.5 text-sm hover:border-primary/40 hover:bg-primary/5"
+                      onClick={() => {
+                        setSelectedCollaboratorIds((current) => [...current, profile.uid]);
+                        setCollaborators((current) => {
+                          const nextTokens = Array.from(new Set([...current.split(",").map((value) => value.trim()).filter(Boolean), profile.uid]));
+                          return nextTokens.join(", ");
+                        });
+                        setCollaboratorSearch("");
+                      }}
+                    >
+                      {profile.displayName} {profile.username ? `• ${profile.username}` : ""}
+                    </button>
+                  ))}
+                  {!collaboratorMatches.slice(0, 8).length ? (
+                    <span className="text-sm text-muted-foreground">No more matches yet. You can still paste usernames below.</span>
+                  ) : null}
+                </div>
+                <Input
+                  value={collaborators}
+                  onChange={(event) => setCollaborators(event.target.value)}
+                  placeholder="Optional: paste usernames or UIDs"
+                  disabled={submitting}
+                  className="mt-3"
+                />
+              </div>
+
+              <div className="rounded-xl border p-4">
+                <div className="mb-3">
+                  <p className="font-medium">Coach feedback layer</p>
+                  <p className="text-sm text-muted-foreground">Invite coaches in the collaborator list to review this upload.</p>
+                </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={coachFeedbackMeta.enabled}
+                    onChange={(event) => setCoachFeedbackMeta((current) => ({ ...current, enabled: event.target.checked }))}
+                  />
+                  Enable coach feedback requests
+                </label>
+                {coachFeedbackMeta.enabled ? (
+                  <textarea
+                    value={coachFeedbackMeta.prompt}
+                    onChange={(event) => setCoachFeedbackMeta((current) => ({ ...current, prompt: event.target.value }))}
+                    placeholder="What should coaches review in this clip?"
+                    className="mt-3 min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                ) : null}
+              </div>
+
+              <div className="rounded-xl border p-4">
+                <p className="mb-3 font-medium">Verified session</p>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={verifiedSessionMeta.enabled}
+                    onChange={(event) => setVerifiedSessionMeta((current) => ({ ...current, enabled: event.target.checked }))}
+                  />
+                  Mark this clip as recorded in a verified session
+                </label>
+                {verifiedSessionMeta.enabled ? (
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <Input value={verifiedSessionMeta.sessionType} onChange={(event) => setVerifiedSessionMeta((current) => ({ ...current, sessionType: event.target.value }))} placeholder="Session type: camp, game, workout" />
+                    <Input value={verifiedSessionMeta.sessionLabel} onChange={(event) => setVerifiedSessionMeta((current) => ({ ...current, sessionLabel: event.target.value }))} placeholder="Session label" />
+                    <Input value={verifiedSessionMeta.verifiedBy} onChange={(event) => setVerifiedSessionMeta((current) => ({ ...current, verifiedBy: event.target.value }))} placeholder="Verified by" className="md:col-span-2" />
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="rounded-xl border p-4">
+                <p className="mb-3 font-medium">Clip request upload</p>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Input value={clipRequestMeta.requestType} onChange={(event) => setClipRequestMeta((current) => ({ ...current, requestType: event.target.value }))} placeholder="Request type: coach, team, brand, recruiting" />
+                  <Input value={clipRequestMeta.requesterId} onChange={(event) => setClipRequestMeta((current) => ({ ...current, requesterId: event.target.value }))} placeholder="Requester ID" />
+                  <Input value={clipRequestMeta.requesterLabel} onChange={(event) => setClipRequestMeta((current) => ({ ...current, requesterLabel: event.target.value }))} placeholder="Requester label" />
+                  <textarea value={clipRequestMeta.requestNote} onChange={(event) => setClipRequestMeta((current) => ({ ...current, requestNote: event.target.value }))} placeholder="Request note" className="min-h-20 rounded-md border border-input bg-background px-3 py-2 text-sm md:col-span-2" />
+                </div>
+              </div>
 
               <Input
                 type="datetime-local"
@@ -517,6 +1036,11 @@ function UploadPageContent() {
                 onChange={(event) => setScheduledFor(event.target.value)}
                 disabled={submitting}
               />
+              {scheduledFor.trim() ? (
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">
+                  This upload will stay off-feed until the scheduled time, then appear automatically.
+                </div>
+              ) : null}
               <div className="grid gap-3 md:grid-cols-2">
                 <select value={visibility} onChange={(event) => setVisibility(event.target.value as "public" | "subscribers" | "premium_group")} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
                   <option value="public">Public</option>
@@ -539,10 +1063,21 @@ function UploadPageContent() {
               {sponsored ? (
                 <Input value={sponsorLabel} onChange={(event) => setSponsorLabel(event.target.value)} placeholder="Sponsor label" disabled={submitting} />
               ) : null}
-              <div className="grid gap-3 md:grid-cols-2">
-                <Input value={clipStartSec} onChange={(event) => setClipStartSec(event.target.value)} placeholder="Clip start (seconds)" disabled={submitting} />
-                <Input value={clipEndSec} onChange={(event) => setClipEndSec(event.target.value)} placeholder="Clip end (seconds)" disabled={submitting} />
-              </div>
+              {composerMode === "advanced" ? (
+                <div className="space-y-4 rounded-xl border p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-medium">Advanced options</p>
+                      <p className="text-sm text-muted-foreground">Editing, accessibility, AI analysis, publishing controls, and creator workflows.</p>
+                    </div>
+                    <Button type="button" variant="outline" onClick={() => setShowCreatorTools((current) => !current)}>
+                      {showCreatorTools ? "Hide creator tools" : "Open creator tools"}
+                    </Button>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Input value={clipStartSec} onChange={(event) => setClipStartSec(event.target.value)} placeholder="Clip start (seconds)" disabled={submitting} />
+                    <Input value={clipEndSec} onChange={(event) => setClipEndSec(event.target.value)} placeholder="Clip end (seconds)" disabled={submitting} />
+                  </div>
               <div className="grid gap-3 md:grid-cols-3">
                 <Input value={trimFrameStart} onChange={(event) => setTrimFrameStart(event.target.value)} placeholder="Frame trim start" disabled={submitting} />
                 <Input value={trimFrameEnd} onChange={(event) => setTrimFrameEnd(event.target.value)} placeholder="Frame trim end" disabled={submitting} />
@@ -558,7 +1093,7 @@ function UploadPageContent() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setAutoCaption(`${sport || "Sport"} highlight: ${caption || file?.name || "Uploaded clip"}`)}
+                  onClick={() => setAutoCaption(`${sport || "Sport"} highlight: ${caption || files[0]?.name || "Uploaded clip"}`)}
                 >
                   Generate Caption
                 </Button>
@@ -682,6 +1217,8 @@ function UploadPageContent() {
                 </div>
               ) : null}
 
+              {showCreatorTools ? (
+              <>
               <div className="rounded-xl border p-4">
                 <p className="font-semibold">Creator Toolkit</p>
                 <p className="mt-1 text-sm text-muted-foreground">Save reusable media assets, content calendar items, clip requests, collab invites, and recruiting highlight packs.</p>
@@ -871,13 +1408,39 @@ function UploadPageContent() {
                   </Button>
                 </div>
               </div>
+              </>
+              ) : null}
+            </div>
+              ) : null}
 
               {error ? <p className="text-sm text-destructive">{error}</p> : null}
+              {publishStatus ? (
+                <div className="rounded-xl border p-4">
+                  <div className="mb-2 flex items-center justify-between text-sm">
+                    <span>{publishStatus}</span>
+                    <span>{publishProgress}%</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted">
+                    <div className="h-2 rounded-full bg-primary transition-all" style={{ width: `${publishProgress}%` }} />
+                  </div>
+                </div>
+              ) : null}
+              {failedFiles.length ? (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm">
+                  <p className="font-medium text-destructive">Upload needs another try</p>
+                  <p className="mt-1 text-muted-foreground">{failedFiles.join(", ")}</p>
+                </div>
+              ) : null}
 
               <div className="flex gap-3">
                 <Button type="submit" disabled={submitting} className="flex-1">
                   {submitting ? "Publishing..." : contentType === "reel" ? "Publish reel" : "Publish post"}
                 </Button>
+                {failedFiles.length ? (
+                  <Button type="submit" variant="outline" disabled={submitting}>
+                    Retry
+                  </Button>
+                ) : null}
                 <Button
                   type="button"
                   variant="outline"
@@ -890,10 +1453,12 @@ function UploadPageContent() {
                       postType,
                       questionPrompt,
                       pollOptions,
-                      collaborators: collaborators
-                        .split(",")
-                        .map((value) => value.trim())
-                        .filter(Boolean),
+                      collaborators: selectedCollaboratorIds.length
+                        ? selectedCollaboratorIds
+                        : collaborators
+                            .split(",")
+                            .map((value) => value.trim())
+                            .filter(Boolean),
                       remixPostId,
                       scheduledFor,
                       visibility,

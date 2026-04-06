@@ -24,6 +24,20 @@ import {
 } from "@/lib/notifications";
 import { auth } from "@/lib/firebase";
 
+const preferenceLabels: Record<keyof UserSettings["notificationPreferences"], string> = {
+  likes: "Likes",
+  comments: "Comments",
+  follows: "Follows",
+  messages: "Messages",
+  reposts: "Reposts",
+  reports: "Reports",
+  recruiting: "Recruiting",
+  teamUpdates: "Team updates",
+  bookings: "Bookings",
+  safetyCompliance: "Safety/compliance",
+  performanceWellness: "Performance/wellness",
+};
+
 function SettingsPageContent() {
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [saving, setSaving] = useState(false);
@@ -90,21 +104,48 @@ function SettingsPageContent() {
 
               <div className="space-y-3">
                 <h3 className="font-semibold">Notifications</h3>
-                {Object.entries(settings.notificationPreferences).map(([key, value]) => (
+                <div className="rounded-xl border p-3">
+                  <p className="mb-2 text-sm font-medium">Delivery mode</p>
+                  <select
+                    value={settings.notificationDeliveryMode}
+                    onChange={(event) =>
+                      setSettings((current) =>
+                        current
+                          ? {
+                              ...current,
+                              notificationDeliveryMode: event.target.value as UserSettings["notificationDeliveryMode"],
+                              pushNotificationsEnabled:
+                                event.target.value === "push" || event.target.value === "both",
+                              emailDigestFrequency:
+                                event.target.value === "email" || event.target.value === "both"
+                                  ? current.emailDigestFrequency === "off"
+                                    ? "daily"
+                                    : current.emailDigestFrequency
+                                  : "off",
+                            }
+                          : current
+                      )
+                    }
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="off">Off</option>
+                    <option value="push">Push only</option>
+                    <option value="email">Email only</option>
+                    <option value="both">Both</option>
+                  </select>
+                </div>
+                {(Object.keys(settings.notificationPreferences) as Array<keyof UserSettings["notificationPreferences"]>).map((key) => (
                   <label key={key} className="flex items-center justify-between rounded-xl border p-3 text-sm">
-                    <span className="capitalize">{key}</span>
+                    <span>{preferenceLabels[key]}</span>
                     <input
                       type="checkbox"
-                      checked={value}
+                      checked={settings.notificationPreferences[key]}
                       onChange={(event) =>
                         setSettings((current) =>
                           current
                             ? {
                                 ...current,
-                                notificationPreferences: {
-                                  ...current.notificationPreferences,
-                                  [key]: event.target.checked,
-                                },
+                                notificationPreferences: { ...current.notificationPreferences, [key]: event.target.checked },
                               }
                             : current
                         )
@@ -122,6 +163,14 @@ function SettingsPageContent() {
                           ? {
                               ...current,
                               emailDigestFrequency: event.target.value as UserSettings["emailDigestFrequency"],
+                              notificationDeliveryMode:
+                                current.pushNotificationsEnabled && event.target.value !== "off"
+                                  ? "both"
+                                  : event.target.value !== "off"
+                                    ? "email"
+                                    : current.pushNotificationsEnabled
+                                      ? "push"
+                                      : "off",
                             }
                           : current
                       )
@@ -148,7 +197,18 @@ function SettingsPageContent() {
                         const checked = event.target.checked;
                         setSettings((current) =>
                           current
-                            ? { ...current, pushNotificationsEnabled: checked }
+                            ? {
+                                ...current,
+                                pushNotificationsEnabled: checked,
+                                notificationDeliveryMode:
+                                  checked && current.emailDigestFrequency !== "off"
+                                    ? "both"
+                                    : checked
+                                      ? "push"
+                                      : current.emailDigestFrequency !== "off"
+                                        ? "email"
+                                        : "off",
+                              }
                             : current
                         );
                         if (!checked) {

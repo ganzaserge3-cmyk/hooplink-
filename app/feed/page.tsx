@@ -6,11 +6,11 @@ import {
   Bookmark,
   Check,
   CornerDownRight,
+  Ellipsis,
   Heart,
   MessageCircle,
   Pencil,
   Search,
-  Repeat2,
   Share2,
   ShieldAlert,
   Sparkles,
@@ -21,6 +21,7 @@ import { AuthProvider, useAuthContext } from "@/components/AuthProvider";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { createSavedCollection, getSavedCollections, togglePostInCollection, type SavedCollection } from "@/lib/collections";
 import {
   FeedPost,
   PostComment,
@@ -81,13 +82,7 @@ function FeedPageContent() {
   const feedTabs = [
     { value: "for_you", label: "For You" },
     { value: "following", label: "Following" },
-    { value: "nearby", label: "Nearby" },
-    { value: "team", label: "Team" },
     { value: "recruiting", label: "Recruiting" },
-    { value: "creator", label: "Creator" },
-    { value: "coach", label: "Coach" },
-    { value: "polls", label: "Polls" },
-    { value: "qa", label: "Q&A" },
     { value: "saved", label: "Saved" },
   ] as const;
   const [posts, setPosts] = useState<FeedPost[]>([]);
@@ -115,6 +110,16 @@ function FeedPageContent() {
   const [currentUserTeam, setCurrentUserTeam] = useState("");
   const [currentUserRole, setCurrentUserRole] = useState("");
   const [pendingTopic, setPendingTopic] = useState<string | null>(null);
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [extraFeedFilter, setExtraFeedFilter] = useState<"all" | "nearby" | "team" | "creator" | "coach" | "polls" | "qa">("all");
+  const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
+  const [carouselIndexes, setCarouselIndexes] = useState<Record<string, number>>({});
+  const [hiddenAuthorIds, setHiddenAuthorIds] = useState<string[]>([]);
+  const [hiddenSports, setHiddenSports] = useState<string[]>([]);
+  const [hiddenTopics, setHiddenTopics] = useState<string[]>([]);
+  const [hiddenPostTypes, setHiddenPostTypes] = useState<string[]>([]);
+  const [savedCollections, setSavedCollections] = useState<SavedCollection[]>([]);
+  const [newCollectionName, setNewCollectionName] = useState("");
 
   useEffect(() => {
     const loadingFallback = window.setTimeout(() => {
@@ -144,6 +149,18 @@ function FeedPageContent() {
 
   useEffect(() => {
     void getActiveStories().then(setStories);
+  }, []);
+
+  useEffect(() => {
+    try {
+      setHiddenAuthorIds(JSON.parse(window.localStorage.getItem("feed:hiddenAuthors") || "[]"));
+      setHiddenSports(JSON.parse(window.localStorage.getItem("feed:hiddenSports") || "[]"));
+      setHiddenTopics(JSON.parse(window.localStorage.getItem("feed:hiddenTopics") || "[]"));
+      setHiddenPostTypes(JSON.parse(window.localStorage.getItem("feed:hiddenPostTypes") || "[]"));
+    } catch {
+      // Ignore localStorage parse issues and fall back to empty preferences.
+    }
+    void getSavedCollections().then(setSavedCollections);
   }, []);
 
   useEffect(() => {
@@ -281,15 +298,31 @@ function FeedPageContent() {
     const currentUserId = user?.uid ?? "";
 
     return posts.filter((post) => {
+      if (hiddenAuthorIds.includes(post.userId)) {
+        return false;
+      }
+
+      if (hiddenSports.includes(post.sport.toLowerCase())) {
+        return false;
+      }
+
+      if (post.hashtags.some((tag) => hiddenTopics.includes(tag.toLowerCase()))) {
+        return false;
+      }
+
+      if (hiddenPostTypes.includes(post.postType || "standard")) {
+        return false;
+      }
+
       if (feedView === "following" && !following.has(post.userId)) {
         return false;
       }
 
-      if (feedView === "nearby" && (!normalizedLocation || post.author.location?.toLowerCase() !== normalizedLocation)) {
+      if (extraFeedFilter === "nearby" && (!normalizedLocation || post.author.location?.toLowerCase() !== normalizedLocation)) {
         return false;
       }
 
-      if (feedView === "team" && (!normalizedTeam || post.author.team?.toLowerCase() !== normalizedTeam)) {
+      if (extraFeedFilter === "team" && (!normalizedTeam || post.author.team?.toLowerCase() !== normalizedTeam)) {
         return false;
       }
 
@@ -297,19 +330,19 @@ function FeedPageContent() {
         return false;
       }
 
-      if (feedView === "creator" && post.author.role !== "creator") {
+      if (extraFeedFilter === "creator" && post.author.role !== "creator") {
         return false;
       }
 
-      if (feedView === "coach" && post.author.role !== "coach") {
+      if (extraFeedFilter === "coach" && post.author.role !== "coach") {
         return false;
       }
 
-      if (feedView === "polls" && post.postType !== "poll") {
+      if (extraFeedFilter === "polls" && post.postType !== "poll") {
         return false;
       }
 
-      if (feedView === "qa" && post.postType !== "qa") {
+      if (extraFeedFilter === "qa" && post.postType !== "qa") {
         return false;
       }
 
@@ -347,9 +380,14 @@ function FeedPageContent() {
   }, [
     currentUserLocation,
     currentUserTeam,
+    extraFeedFilter,
     feedSearch,
     feedView,
     followingIds,
+    hiddenAuthorIds,
+    hiddenPostTypes,
+    hiddenSports,
+    hiddenTopics,
     posts,
     selectedSport,
     selectedTopic,
@@ -405,6 +443,46 @@ function FeedPageContent() {
     setSharePostId(sharePostId === postId ? null : postId);
   };
 
+  const persistHiddenState = (key: string, values: string[]) => {
+    window.localStorage.setItem(key, JSON.stringify(values));
+  };
+
+  const hideAuthor = (userId: string) => {
+    setHiddenAuthorIds((current) => {
+      const next = Array.from(new Set([...current, userId]));
+      persistHiddenState("feed:hiddenAuthors", next);
+      return next;
+    });
+    setOpenPostMenuId(null);
+  };
+
+  const hideSport = (sport: string) => {
+    setHiddenSports((current) => {
+      const next = Array.from(new Set([...current, sport.toLowerCase()]));
+      persistHiddenState("feed:hiddenSports", next);
+      return next;
+    });
+    setOpenPostMenuId(null);
+  };
+
+  const hideTopic = (topic: string) => {
+    setHiddenTopics((current) => {
+      const next = Array.from(new Set([...current, topic.toLowerCase()]));
+      persistHiddenState("feed:hiddenTopics", next);
+      return next;
+    });
+    setOpenPostMenuId(null);
+  };
+
+  const hidePostType = (postType: string) => {
+    setHiddenPostTypes((current) => {
+      const next = Array.from(new Set([...current, postType]));
+      persistHiddenState("feed:hiddenPostTypes", next);
+      return next;
+    });
+    setOpenPostMenuId(null);
+  };
+
   return (
     <ProtectedRoute>
       <div className="mx-auto max-w-2xl space-y-6 pb-24">
@@ -418,13 +496,13 @@ function FeedPageContent() {
             </div>
             <div className="grid gap-2 sm:grid-cols-3">
               <Link href="/upload?template=standard" className="rounded-xl border px-4 py-3 text-sm transition-colors hover:border-primary/30 hover:bg-primary/5">
-                Share update
+                Create post
               </Link>
-              <Link href="/upload?type=poll&template=poll" className="rounded-xl border px-4 py-3 text-sm transition-colors hover:border-primary/30 hover:bg-primary/5">
-                Ask a poll
+              <Link href="/upload?template=highlight" className="rounded-xl border px-4 py-3 text-sm transition-colors hover:border-primary/30 hover:bg-primary/5">
+                Add reel
               </Link>
-              <Link href="/upload?type=qa&template=qa" className="rounded-xl border px-4 py-3 text-sm transition-colors hover:border-primary/30 hover:bg-primary/5">
-                Start Q&amp;A
+              <Link href="/stories" className="rounded-xl border px-4 py-3 text-sm transition-colors hover:border-primary/30 hover:bg-primary/5">
+                Open stories
               </Link>
             </div>
           </CardContent>
@@ -442,7 +520,7 @@ function FeedPageContent() {
               />
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {feedTabs.map((option) => (
                 <button
                   key={option.value}
@@ -455,43 +533,19 @@ function FeedPageContent() {
                   {option.label}
                 </button>
               ))}
+              <button
+                type="button"
+                className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${showMoreFilters ? "border-primary bg-primary/5 text-primary" : "hover:border-primary/30"}`}
+                onClick={() => setShowMoreFilters((current) => !current)}
+              >
+                More filters
+              </button>
             </div>
 
             <div className="space-y-3 rounded-2xl border bg-muted/30 p-4">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <Sparkles className="h-4 w-4 text-primary" />
-                Discover faster
-              </div>
-              {(currentUserRole || currentUserLocation || currentUserTeam) ? (
-                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                  {currentUserRole ? <span className="rounded-full bg-background px-2 py-1 capitalize">{currentUserRole}</span> : null}
-                  {currentUserTeam ? <span className="rounded-full bg-background px-2 py-1">{currentUserTeam}</span> : null}
-                  {currentUserLocation ? <span className="rounded-full bg-background px-2 py-1">{currentUserLocation}</span> : null}
-                </div>
-              ) : null}
-              <div className="flex flex-wrap gap-2">
-                {suggestedTopics.length === 0 ? (
-                  <span className="text-xs text-muted-foreground">
-                    Follow a few topics to make your feed more personal.
-                  </span>
-                ) : (
-                  suggestedTopics.map((topic) => {
-                    const isFollowingTopic = followedTopics.includes(topic);
-                    return (
-                      <button
-                        key={topic}
-                        type="button"
-                        className={`rounded-full border px-3 py-1.5 text-xs ${
-                          isFollowingTopic ? "border-primary bg-primary/5 text-primary" : ""
-                        }`}
-                        disabled={pendingTopic === topic}
-                        onClick={() => void handleTopicFollow(topic)}
-                      >
-                        {isFollowingTopic ? "Following" : "Follow"} #{topic}
-                      </button>
-                    );
-                  })
-                )}
+                Filter bar
               </div>
               <div className="flex flex-wrap gap-2">
                 <button
@@ -501,7 +555,7 @@ function FeedPageContent() {
                 >
                   All sports
                 </button>
-                {availableSports.map((sport) => (
+                {availableSports.slice(0, 6).map((sport) => (
                   <button
                     key={sport}
                     type="button"
@@ -520,7 +574,7 @@ function FeedPageContent() {
                 >
                   All topics
                 </button>
-                {trendingTopics.map((topic) => (
+                {trendingTopics.slice(0, 6).map((topic) => (
                   <button
                     key={topic}
                     type="button"
@@ -531,6 +585,49 @@ function FeedPageContent() {
                   </button>
                 ))}
               </div>
+              {showMoreFilters ? (
+                <div className="space-y-3 rounded-xl bg-background p-3">
+                  {(currentUserRole || currentUserLocation || currentUserTeam) ? (
+                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                      {currentUserRole ? <span className="rounded-full bg-muted px-2 py-1 capitalize">{currentUserRole}</span> : null}
+                      {currentUserTeam ? <span className="rounded-full bg-muted px-2 py-1">{currentUserTeam}</span> : null}
+                      {currentUserLocation ? <span className="rounded-full bg-muted px-2 py-1">{currentUserLocation}</span> : null}
+                    </div>
+                  ) : null}
+                  <div className="flex flex-wrap gap-2">
+                    {(["all", "nearby", "team", "creator", "coach", "polls", "qa"] as const).map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        className={`rounded-full border px-3 py-1.5 text-xs ${extraFeedFilter === value ? "border-primary bg-primary/5 text-primary" : ""}`}
+                        onClick={() => setExtraFeedFilter(value)}
+                      >
+                        {value === "all" ? "No extra filter" : value}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {suggestedTopics.length === 0 ? (
+                      <span className="text-xs text-muted-foreground">Follow a few topics to make your feed more personal.</span>
+                    ) : (
+                      suggestedTopics.map((topic) => {
+                        const isFollowingTopic = followedTopics.includes(topic);
+                        return (
+                          <button
+                            key={topic}
+                            type="button"
+                            className={`rounded-full border px-3 py-1.5 text-xs ${isFollowingTopic ? "border-primary bg-primary/5 text-primary" : ""}`}
+                            disabled={pendingTopic === topic}
+                            onClick={() => void handleTopicFollow(topic)}
+                          >
+                            {isFollowingTopic ? "Following" : "Follow"} #{topic}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              ) : null}
             </div>
           </CardContent>
         </Card>
@@ -620,14 +717,23 @@ function FeedPageContent() {
             <CardContent className="p-6 text-center">
               <h2 className="text-lg font-semibold">Nothing matches this view yet</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Try another tab, clear your filters, follow a topic, or create the first post for this community.
+                Try another tab, clear your filters, or switch back to For You.
               </p>
               <div className="mt-4 flex flex-wrap justify-center gap-2">
                 <Button variant="outline" onClick={() => {
                   setFeedSearch("");
                   setFeedView("for_you");
+                  setExtraFeedFilter("all");
                   setSelectedSport("all");
                   setSelectedTopic("all");
+                  setHiddenAuthorIds([]);
+                  setHiddenSports([]);
+                  setHiddenTopics([]);
+                  setHiddenPostTypes([]);
+                  persistHiddenState("feed:hiddenAuthors", []);
+                  persistHiddenState("feed:hiddenSports", []);
+                  persistHiddenState("feed:hiddenTopics", []);
+                  persistHiddenState("feed:hiddenPostTypes", []);
                 }}>
                   Reset filters
                 </Button>
@@ -666,36 +772,12 @@ function FeedPageContent() {
                   <span className="text-xs text-muted-foreground">{post.sport} • {formatTimeAgo(post.createdAt)}</span>
                 </div>
                 {post.userId === user.uid ? (
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setEditingPostId(post.id);
-                        setEditCaption(post.caption);
-                        setEditSport(post.sport);
-                      }}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => void deletePost(post.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setOpenPostMenuId(openPostMenuId === post.id ? null : post.id)}>
+                    <Ellipsis className="h-4 w-4" />
+                  </Button>
                 ) : (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      void reportEntity({
-                        targetId: post.id,
-                        targetType: "post",
-                        reason: "content",
-                        details: "Reported from feed.",
-                      })
-                    }
-                  >
-                    <ShieldAlert className="h-4 w-4" />
+                  <Button variant="ghost" size="sm" onClick={() => setOpenPostMenuId(openPostMenuId === post.id ? null : post.id)}>
+                    <Ellipsis className="h-4 w-4" />
                   </Button>
                 )}
               </div>
@@ -708,32 +790,77 @@ function FeedPageContent() {
                 onClick={() => void recordPostView(post.id)}
                 onContextMenu={post.rightClickProtected ? (event) => event.preventDefault() : undefined}
               >
-                {post.mediaType === "video" ? (
-                  <video
-                    src={post.mediaUrl}
-                    controlsList={post.downloadProtected ? "nodownload" : undefined}
-                    aria-label={post.accessibilityLabel || post.caption || "Post media"}
-                    className="aspect-video w-full bg-black object-cover"
-                    muted
-                    loop
-                    playsInline
-                    preload="metadata"
-                    onClick={(event) => {
-                      const video = event.currentTarget;
-                      if (video.paused) {
-                        void video.play();
-                      } else {
-                        video.pause();
-                      }
-                    }}
-                  />
-                ) : (
-                  <img
-                    src={post.mediaUrl}
-                    alt={post.accessibilityLabel || post.caption || "Post media"}
-                    className="aspect-video w-full object-cover"
-                  />
-                )}
+                {(() => {
+                  const mediaItems = post.mediaItems?.length
+                    ? post.mediaItems
+                    : [{ url: post.mediaUrl, type: post.mediaType, storagePath: post.storagePath }];
+                  const activeIndex = Math.min(carouselIndexes[post.id] ?? 0, mediaItems.length - 1);
+                  const activeMedia = mediaItems[activeIndex];
+
+                  return (
+                    <>
+                      {activeMedia?.type === "video" ? (
+                        <video
+                          src={activeMedia.url}
+                          controlsList={post.downloadProtected ? "nodownload" : undefined}
+                          aria-label={post.accessibilityLabel || post.caption || "Post media"}
+                          className="aspect-video w-full bg-black object-cover"
+                          muted
+                          loop
+                          playsInline
+                          preload="metadata"
+                          onClick={(event) => {
+                            const video = event.currentTarget;
+                            if (video.paused) {
+                              void video.play();
+                            } else {
+                              video.pause();
+                            }
+                          }}
+                        />
+                      ) : (
+                        <img
+                          src={activeMedia?.url || post.mediaUrl}
+                          alt={post.accessibilityLabel || post.caption || "Post media"}
+                          className="aspect-video w-full object-cover"
+                        />
+                      )}
+                      {mediaItems.length > 1 ? (
+                        <>
+                          <button
+                            type="button"
+                            className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setCarouselIndexes((current) => ({
+                                ...current,
+                                [post.id]: activeIndex === 0 ? mediaItems.length - 1 : activeIndex - 1,
+                              }));
+                            }}
+                          >
+                            ‹
+                          </button>
+                          <button
+                            type="button"
+                            className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setCarouselIndexes((current) => ({
+                                ...current,
+                                [post.id]: activeIndex + 1 >= mediaItems.length ? 0 : activeIndex + 1,
+                              }));
+                            }}
+                          >
+                            ›
+                          </button>
+                          <span className="absolute left-3 top-3 rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white">
+                            {activeIndex + 1} / {mediaItems.length}
+                          </span>
+                        </>
+                      ) : null}
+                    </>
+                  );
+                })()}
                 {post.watermarkEnabled ? (
                   <span className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white">
                     {post.author.username}
@@ -743,6 +870,118 @@ function FeedPageContent() {
             ) : null}
 
             <div className="space-y-3 p-4">
+              {openPostMenuId === post.id ? (
+                <div className="flex flex-wrap gap-2 rounded-xl border p-3">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/analytics/${post.id}`}>Analytics</Link>
+                  </Button>
+                  {post.userId === user.uid ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingPostId(post.id);
+                          setEditCaption(post.caption);
+                          setEditSport(post.sport);
+                          setOpenPostMenuId(null);
+                        }}
+                      >
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => void deletePost(post.id)}>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="outline" size="sm" onClick={() => hideAuthor(post.userId)}>
+                        Hide author
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => hideSport(post.sport)}>
+                        Hide {post.sport}
+                      </Button>
+                      {post.hashtags[0] ? (
+                        <Button variant="outline" size="sm" onClick={() => hideTopic(post.hashtags[0])}>
+                          Hide #{post.hashtags[0]}
+                        </Button>
+                      ) : null}
+                      <Button variant="outline" size="sm" onClick={() => hidePostType(post.postType || "standard")}>
+                        Hide {post.postType === "qa" ? "Q&A" : post.postType}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          void reportEntity({
+                            targetId: post.id,
+                            targetType: "post",
+                            reason: "content",
+                            details: "Reported from feed.",
+                          }).then(() => setOpenPostMenuId(null))
+                        }
+                      >
+                        <ShieldAlert className="mr-2 h-4 w-4" />
+                        Report
+                      </Button>
+                    </>
+                  )}
+                </div>
+              ) : null}
+
+              {openPostMenuId === post.id ? (
+                <div className="rounded-xl border p-3">
+                  <p className="text-sm font-medium">Save to collection</p>
+                  {savedCollections.length ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {savedCollections.map((collection) => (
+                        <Button
+                          key={collection.id}
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            void togglePostInCollection(
+                              collection.id,
+                              post.id,
+                              collection.postIds.includes(post.id)
+                            ).then(() => getSavedCollections().then(setSavedCollections))
+                          }
+                        >
+                          {collection.postIds.includes(post.id) ? `Remove from ${collection.name}` : `Save to ${collection.name}`}
+                        </Button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-muted-foreground">Create your first save collection below.</p>
+                  )}
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      value={newCollectionName}
+                      onChange={(event) => setNewCollectionName(event.target.value)}
+                      placeholder="New collection"
+                      className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        void createSavedCollection(newCollectionName).then(() => {
+                          setNewCollectionName("");
+                          return getSavedCollections().then(setSavedCollections);
+                        })
+                      }
+                      disabled={!newCollectionName.trim()}
+                    >
+                      Create
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4 text-muted-foreground">
                   <Button variant="ghost" size="sm" className="h-9 w-9 p-0" disabled={pendingPostId === post.id} onClick={() => handleLike(post.id, post.likes.includes(user.uid))}>
@@ -750,23 +989,6 @@ function FeedPageContent() {
                   </Button>
                   <Button variant="ghost" size="sm" className="h-9 w-9 p-0" onClick={() => toggleComments(post.id)}>
                     <MessageCircle className={`h-5 w-5 ${openComments[post.id] ? "text-primary" : ""}`} />
-                  </Button>
-                  <Button variant="ghost" size="sm" className="h-9 w-9 p-0" onClick={() => void repostPost(post.id)}>
-                    <Repeat2 className="h-5 w-5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-auto px-2 text-xs"
-                    onClick={() => {
-                      const quote = window.prompt("Add a caption to your quote repost", "");
-                      if (quote === null) {
-                        return;
-                      }
-                      void repostPost(post.id, quote);
-                    }}
-                  >
-                    Quote
                   </Button>
                   <Button variant="ghost" size="sm" className="h-9 w-9 p-0" onClick={() => void handleShare(post.id)}>
                     <Share2 className="h-5 w-5" />
@@ -794,6 +1016,12 @@ function FeedPageContent() {
                   <Button size="sm" variant="outline" asChild>
                     <a href={shareLinks.linkedin} target="_blank" rel="noreferrer">LinkedIn</a>
                   </Button>
+                </div>
+              ) : null}
+
+              {post.mediaItems && post.mediaItems.length > 1 ? (
+                <div className="text-xs text-muted-foreground">
+                  Carousel post with {post.mediaItems.length} slides
                 </div>
               ) : null}
 
@@ -845,62 +1073,6 @@ function FeedPageContent() {
                       </button>
                     ))}
                   </div>
-                  {post.collaborators?.length ? (
-                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                      <span className="font-semibold text-foreground">Collaborators:</span>
-                      {post.collaborators.map((collaborator) => (
-                        <Link key={collaborator.uid} href={`/profile/${collaborator.uid}`} className="rounded-full bg-muted px-2 py-1 hover:text-primary">
-                          {collaborator.username}
-                        </Link>
-                      ))}
-                    </div>
-                  ) : null}
-                  {post.remixOf ? (
-                    <div className="text-xs text-muted-foreground">
-                      Remix of <Link href={`/feed?post=${post.remixOf}`} className="text-primary hover:underline">another HoopLink post</Link>
-                    </div>
-                  ) : null}
-                  {post.originalPostId ? (
-                    <div className="text-xs text-muted-foreground">
-                      Reposted from <Link href={`/feed?post=${post.originalPostId}`} className="text-primary hover:underline">the original post</Link>
-                    </div>
-                  ) : null}
-                  {post.autoCaption ? (
-                    <div className="rounded-xl bg-muted p-3 text-sm">
-                      <span className="font-semibold">Caption:</span> {post.autoCaption}
-                    </div>
-                  ) : null}
-                  {post.translatedCaption ? (
-                    <div className="rounded-xl bg-muted/60 p-3 text-sm text-muted-foreground">
-                      <span className="font-semibold text-foreground">Translation:</span> {post.translatedCaption}
-                    </div>
-                  ) : null}
-                  {post.aiHighlightAnalysis ? (
-                    <div className="rounded-xl bg-primary/5 p-3 text-sm text-muted-foreground">
-                      <span className="font-semibold text-primary">AI Analysis:</span> {post.aiHighlightAnalysis}
-                    </div>
-                  ) : null}
-                  {post.voiceoverScript ? (
-                    <div className="rounded-xl bg-primary/5 p-3 text-sm text-muted-foreground">
-                      <span className="font-semibold text-primary">Voiceover:</span> {post.voiceoverScript}
-                    </div>
-                  ) : null}
-                  {post.thumbnailHint ? (
-                    <div className="text-xs text-muted-foreground">
-                      Best thumbnail: {post.thumbnailHint}
-                    </div>
-                  ) : null}
-                  {post.clipStartSec !== null || post.clipEndSec !== null ? (
-                    <div className="text-xs text-muted-foreground">
-                      Clip range: {post.clipStartSec ?? 0}s - {post.clipEndSec ?? "end"}s
-                    </div>
-                  ) : null}
-                  {post.accessibilityLabel ? (
-                    <div className="text-xs text-muted-foreground">
-                      Accessibility label: {post.accessibilityLabel}
-                    </div>
-                  ) : null}
-
                   {post.postType === "qa" && post.questionPrompt ? (
                     <div className="rounded-xl bg-primary/5 p-3 text-sm">
                       <span className="font-semibold text-primary">Question:</span>{" "}
@@ -1023,6 +1195,10 @@ function FeedPageContent() {
                     </Button>
                   </div>
                 </div>
+              ) : post.commentsCount > 0 ? (
+                <button type="button" className="text-sm text-primary hover:underline" onClick={() => toggleComments(post.id)}>
+                  View comments
+                </button>
               ) : null}
             </div>
           </Card>

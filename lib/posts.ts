@@ -29,6 +29,11 @@ export interface FeedPost {
   caption: string;
   mediaUrl: string;
   mediaType: "image" | "video";
+  mediaItems?: Array<{
+    url: string;
+    type: "image" | "video";
+    storagePath?: string;
+  }>;
   contentType: "post" | "reel";
   postType?: "standard" | "poll" | "qa";
   sport: string;
@@ -72,6 +77,54 @@ export interface FeedPost {
   } | null;
   storagePath?: string;
   originalPostId?: string | null;
+  uploadMeta?: {
+    mode?: "standard" | "recruiting" | "drill_breakdown" | "before_after" | "stat_card" | "tryout_tape";
+    recruitingProfile?: {
+      position?: string;
+      gradYear?: string;
+      height?: string;
+      team?: string;
+      bestSkills?: string[];
+      coachContactCta?: string;
+    } | null;
+    drillBreakdown?: {
+      drillName?: string;
+      goal?: string;
+      coachingPoints?: string[];
+      mistakesToAvoid?: string[];
+    } | null;
+    beforeAfter?: {
+      beforeLabel?: string;
+      afterLabel?: string;
+      improvementNote?: string;
+    } | null;
+    statCard?: {
+      headline?: string;
+      stats?: Array<{ label: string; value: string }>;
+    } | null;
+    coachFeedback?: {
+      enabled?: boolean;
+      requestedCoachIds?: string[];
+      prompt?: string;
+    } | null;
+    tryoutTape?: {
+      roleFocus?: string;
+      strengths?: string[];
+      introLine?: string;
+    } | null;
+    verifiedSession?: {
+      enabled?: boolean;
+      sessionType?: string;
+      sessionLabel?: string;
+      verifiedBy?: string;
+    } | null;
+    clipRequest?: {
+      requestType?: string;
+      requesterId?: string;
+      requesterLabel?: string;
+      requestNote?: string;
+    } | null;
+  } | null;
   author: {
     name: string;
     username: string;
@@ -104,6 +157,7 @@ interface CreatePostInput {
   caption: string;
   sport: string;
   file?: File | null;
+  files?: File[];
   contentType?: "post" | "reel";
   postType?: "standard" | "poll" | "qa";
   questionPrompt?: string;
@@ -126,6 +180,7 @@ interface CreatePostInput {
   watermarkEnabled?: boolean;
   downloadProtected?: boolean;
   rightClickProtected?: boolean;
+  uploadMeta?: FeedPost["uploadMeta"];
 }
 
 type ListenerCleanup = () => void;
@@ -237,13 +292,32 @@ async function resolveTaggedUsers(tokens: string[]): Promise<
 
 function mapPost(id: string, data: Record<string, unknown>): FeedPost {
   const author = (data.author as Record<string, unknown> | undefined) ?? {};
+  const mediaItems = Array.isArray(data.mediaItems)
+    ? (data.mediaItems as Array<Record<string, unknown>>)
+        .map((item) => ({
+          url: String(item.url ?? ""),
+          type: (item.type === "video" ? "video" : "image") as "image" | "video",
+          storagePath: item.storagePath ? String(item.storagePath) : undefined,
+        }))
+        .filter((item) => item.url)
+    : [];
+  const fallbackMediaType = (data.mediaType === "video" ? "video" : "image") as "image" | "video";
+  const fallbackMediaUrl = String(data.mediaUrl ?? "");
+  const normalizedMediaItems =
+    mediaItems.length > 0
+      ? mediaItems
+      : fallbackMediaUrl
+        ? [{ url: fallbackMediaUrl, type: fallbackMediaType, storagePath: data.storagePath ? String(data.storagePath) : undefined }]
+        : [];
+  const primaryMediaItem = normalizedMediaItems[0];
 
   return {
     id,
     userId: String(data.userId ?? ""),
     caption: String(data.caption ?? ""),
-    mediaUrl: String(data.mediaUrl ?? ""),
-    mediaType: data.mediaType === "video" ? "video" : "image",
+    mediaUrl: primaryMediaItem?.url ?? fallbackMediaUrl,
+    mediaType: primaryMediaItem?.type ?? fallbackMediaType,
+    mediaItems: normalizedMediaItems,
     contentType: data.contentType === "reel" ? "reel" : "post",
     postType:
       data.postType === "poll" || data.postType === "qa" ? data.postType : "standard",
@@ -302,6 +376,146 @@ function mapPost(id: string, data: Record<string, unknown>): FeedPost {
         : null,
     storagePath: data.storagePath ? String(data.storagePath) : undefined,
     originalPostId: data.originalPostId ? String(data.originalPostId) : null,
+    uploadMeta:
+      typeof data.uploadMeta === "object" && data.uploadMeta
+        ? {
+            mode: String((data.uploadMeta as Record<string, unknown>).mode ?? "standard") as NonNullable<FeedPost["uploadMeta"]>["mode"],
+            recruitingProfile:
+              typeof (data.uploadMeta as Record<string, unknown>).recruitingProfile === "object" &&
+              (data.uploadMeta as Record<string, unknown>).recruitingProfile
+                ? {
+                    position: ((data.uploadMeta as Record<string, unknown>).recruitingProfile as Record<string, unknown>).position
+                      ? String(((data.uploadMeta as Record<string, unknown>).recruitingProfile as Record<string, unknown>).position)
+                      : undefined,
+                    gradYear: ((data.uploadMeta as Record<string, unknown>).recruitingProfile as Record<string, unknown>).gradYear
+                      ? String(((data.uploadMeta as Record<string, unknown>).recruitingProfile as Record<string, unknown>).gradYear)
+                      : undefined,
+                    height: ((data.uploadMeta as Record<string, unknown>).recruitingProfile as Record<string, unknown>).height
+                      ? String(((data.uploadMeta as Record<string, unknown>).recruitingProfile as Record<string, unknown>).height)
+                      : undefined,
+                    team: ((data.uploadMeta as Record<string, unknown>).recruitingProfile as Record<string, unknown>).team
+                      ? String(((data.uploadMeta as Record<string, unknown>).recruitingProfile as Record<string, unknown>).team)
+                      : undefined,
+                    bestSkills: Array.isArray(((data.uploadMeta as Record<string, unknown>).recruitingProfile as Record<string, unknown>).bestSkills)
+                      ? ((((data.uploadMeta as Record<string, unknown>).recruitingProfile as Record<string, unknown>).bestSkills as string[]).map(String))
+                      : [],
+                    coachContactCta: ((data.uploadMeta as Record<string, unknown>).recruitingProfile as Record<string, unknown>).coachContactCta
+                      ? String(((data.uploadMeta as Record<string, unknown>).recruitingProfile as Record<string, unknown>).coachContactCta)
+                      : undefined,
+                  }
+                : null,
+            drillBreakdown:
+              typeof (data.uploadMeta as Record<string, unknown>).drillBreakdown === "object" &&
+              (data.uploadMeta as Record<string, unknown>).drillBreakdown
+                ? {
+                    drillName: ((data.uploadMeta as Record<string, unknown>).drillBreakdown as Record<string, unknown>).drillName
+                      ? String(((data.uploadMeta as Record<string, unknown>).drillBreakdown as Record<string, unknown>).drillName)
+                      : undefined,
+                    goal: ((data.uploadMeta as Record<string, unknown>).drillBreakdown as Record<string, unknown>).goal
+                      ? String(((data.uploadMeta as Record<string, unknown>).drillBreakdown as Record<string, unknown>).goal)
+                      : undefined,
+                    coachingPoints: Array.isArray(((data.uploadMeta as Record<string, unknown>).drillBreakdown as Record<string, unknown>).coachingPoints)
+                      ? ((((data.uploadMeta as Record<string, unknown>).drillBreakdown as Record<string, unknown>).coachingPoints as string[]).map(String))
+                      : [],
+                    mistakesToAvoid: Array.isArray(((data.uploadMeta as Record<string, unknown>).drillBreakdown as Record<string, unknown>).mistakesToAvoid)
+                      ? ((((data.uploadMeta as Record<string, unknown>).drillBreakdown as Record<string, unknown>).mistakesToAvoid as string[]).map(String))
+                      : [],
+                  }
+                : null,
+            beforeAfter:
+              typeof (data.uploadMeta as Record<string, unknown>).beforeAfter === "object" &&
+              (data.uploadMeta as Record<string, unknown>).beforeAfter
+                ? {
+                    beforeLabel: ((data.uploadMeta as Record<string, unknown>).beforeAfter as Record<string, unknown>).beforeLabel
+                      ? String(((data.uploadMeta as Record<string, unknown>).beforeAfter as Record<string, unknown>).beforeLabel)
+                      : undefined,
+                    afterLabel: ((data.uploadMeta as Record<string, unknown>).beforeAfter as Record<string, unknown>).afterLabel
+                      ? String(((data.uploadMeta as Record<string, unknown>).beforeAfter as Record<string, unknown>).afterLabel)
+                      : undefined,
+                    improvementNote: ((data.uploadMeta as Record<string, unknown>).beforeAfter as Record<string, unknown>).improvementNote
+                      ? String(((data.uploadMeta as Record<string, unknown>).beforeAfter as Record<string, unknown>).improvementNote)
+                      : undefined,
+                  }
+                : null,
+            statCard:
+              typeof (data.uploadMeta as Record<string, unknown>).statCard === "object" &&
+              (data.uploadMeta as Record<string, unknown>).statCard
+                ? {
+                    headline: ((data.uploadMeta as Record<string, unknown>).statCard as Record<string, unknown>).headline
+                      ? String(((data.uploadMeta as Record<string, unknown>).statCard as Record<string, unknown>).headline)
+                      : undefined,
+                    stats: Array.isArray(((data.uploadMeta as Record<string, unknown>).statCard as Record<string, unknown>).stats)
+                      ? ((((data.uploadMeta as Record<string, unknown>).statCard as Record<string, unknown>).stats as Array<Record<string, unknown>>).map((entry) => ({
+                          label: String(entry.label ?? ""),
+                          value: String(entry.value ?? ""),
+                        })))
+                      : [],
+                  }
+                : null,
+            coachFeedback:
+              typeof (data.uploadMeta as Record<string, unknown>).coachFeedback === "object" &&
+              (data.uploadMeta as Record<string, unknown>).coachFeedback
+                ? {
+                    enabled: ((data.uploadMeta as Record<string, unknown>).coachFeedback as Record<string, unknown>).enabled === true,
+                    requestedCoachIds: Array.isArray(((data.uploadMeta as Record<string, unknown>).coachFeedback as Record<string, unknown>).requestedCoachIds)
+                      ? ((((data.uploadMeta as Record<string, unknown>).coachFeedback as Record<string, unknown>).requestedCoachIds as string[]).map(String))
+                      : [],
+                    prompt: ((data.uploadMeta as Record<string, unknown>).coachFeedback as Record<string, unknown>).prompt
+                      ? String(((data.uploadMeta as Record<string, unknown>).coachFeedback as Record<string, unknown>).prompt)
+                      : undefined,
+                  }
+                : null,
+            tryoutTape:
+              typeof (data.uploadMeta as Record<string, unknown>).tryoutTape === "object" &&
+              (data.uploadMeta as Record<string, unknown>).tryoutTape
+                ? {
+                    roleFocus: ((data.uploadMeta as Record<string, unknown>).tryoutTape as Record<string, unknown>).roleFocus
+                      ? String(((data.uploadMeta as Record<string, unknown>).tryoutTape as Record<string, unknown>).roleFocus)
+                      : undefined,
+                    strengths: Array.isArray(((data.uploadMeta as Record<string, unknown>).tryoutTape as Record<string, unknown>).strengths)
+                      ? ((((data.uploadMeta as Record<string, unknown>).tryoutTape as Record<string, unknown>).strengths as string[]).map(String))
+                      : [],
+                    introLine: ((data.uploadMeta as Record<string, unknown>).tryoutTape as Record<string, unknown>).introLine
+                      ? String(((data.uploadMeta as Record<string, unknown>).tryoutTape as Record<string, unknown>).introLine)
+                      : undefined,
+                  }
+                : null,
+            verifiedSession:
+              typeof (data.uploadMeta as Record<string, unknown>).verifiedSession === "object" &&
+              (data.uploadMeta as Record<string, unknown>).verifiedSession
+                ? {
+                    enabled: ((data.uploadMeta as Record<string, unknown>).verifiedSession as Record<string, unknown>).enabled === true,
+                    sessionType: ((data.uploadMeta as Record<string, unknown>).verifiedSession as Record<string, unknown>).sessionType
+                      ? String(((data.uploadMeta as Record<string, unknown>).verifiedSession as Record<string, unknown>).sessionType)
+                      : undefined,
+                    sessionLabel: ((data.uploadMeta as Record<string, unknown>).verifiedSession as Record<string, unknown>).sessionLabel
+                      ? String(((data.uploadMeta as Record<string, unknown>).verifiedSession as Record<string, unknown>).sessionLabel)
+                      : undefined,
+                    verifiedBy: ((data.uploadMeta as Record<string, unknown>).verifiedSession as Record<string, unknown>).verifiedBy
+                      ? String(((data.uploadMeta as Record<string, unknown>).verifiedSession as Record<string, unknown>).verifiedBy)
+                      : undefined,
+                  }
+                : null,
+            clipRequest:
+              typeof (data.uploadMeta as Record<string, unknown>).clipRequest === "object" &&
+              (data.uploadMeta as Record<string, unknown>).clipRequest
+                ? {
+                    requestType: ((data.uploadMeta as Record<string, unknown>).clipRequest as Record<string, unknown>).requestType
+                      ? String(((data.uploadMeta as Record<string, unknown>).clipRequest as Record<string, unknown>).requestType)
+                      : undefined,
+                    requesterId: ((data.uploadMeta as Record<string, unknown>).clipRequest as Record<string, unknown>).requesterId
+                      ? String(((data.uploadMeta as Record<string, unknown>).clipRequest as Record<string, unknown>).requesterId)
+                      : undefined,
+                    requesterLabel: ((data.uploadMeta as Record<string, unknown>).clipRequest as Record<string, unknown>).requesterLabel
+                      ? String(((data.uploadMeta as Record<string, unknown>).clipRequest as Record<string, unknown>).requesterLabel)
+                      : undefined,
+                    requestNote: ((data.uploadMeta as Record<string, unknown>).clipRequest as Record<string, unknown>).requestNote
+                      ? String(((data.uploadMeta as Record<string, unknown>).clipRequest as Record<string, unknown>).requestNote)
+                      : undefined,
+                  }
+                : null,
+          }
+        : null,
     author: {
       name: String(author.name ?? "HoopLink User"),
       username: String(author.username ?? "@player"),
@@ -415,6 +629,7 @@ export async function createPost({
   caption,
   sport,
   file,
+  files = [],
   contentType = "post",
   postType = "standard",
   questionPrompt = "",
@@ -437,6 +652,7 @@ export async function createPost({
   watermarkEnabled = false,
   downloadProtected = false,
   rightClickProtected = false,
+  uploadMeta = null,
 }: CreatePostInput) {
   assertFirebaseReady();
 
@@ -448,14 +664,21 @@ export async function createPost({
     throw new Error("Add a sport before posting.");
   }
 
-  const mediaType = file?.type.startsWith("video/") ? "video" : "image";
-  const uploadedMedia = file
-    ? await uploadToCloudinary(
-        file,
-        `hooplink/${contentType === "reel" ? "reels" : "posts"}/${user.uid}`
-      )
-    : null;
-  const mediaUrl = uploadedMedia?.url ?? "";
+  const normalizedFiles = files.length > 0 ? files.filter(Boolean) : file ? [file] : [];
+  const uploadFolder = `hooplink/${contentType === "reel" ? "reels" : "posts"}/${user.uid}`;
+  const uploadedMediaItems = await Promise.all(
+    normalizedFiles.map(async (currentFile) => {
+      const uploadedMedia = await uploadToCloudinary(currentFile, uploadFolder);
+      return {
+        url: uploadedMedia.url,
+        type: currentFile.type.startsWith("video/") ? "video" : "image",
+        storagePath: uploadedMedia.publicId ?? "",
+      } as { url: string; type: "image" | "video"; storagePath: string };
+    })
+  );
+  const primaryMediaItem = uploadedMediaItems[0] ?? null;
+  const mediaUrl = primaryMediaItem?.url ?? "";
+  const mediaType = primaryMediaItem?.type ?? "image";
   const trimmedCaption = caption.trim();
   const mentionUserIds = await resolveMentionedUserIds(
     [trimmedCaption, questionPrompt.trim()].filter(Boolean).join(" ")
@@ -476,6 +699,7 @@ export async function createPost({
     caption: trimmedCaption,
     mediaUrl,
     mediaType,
+    mediaItems: uploadedMediaItems,
     contentType,
     postType,
     sport: resolvedSport,
@@ -515,8 +739,9 @@ export async function createPost({
             options: normalizedPollOptions.map((label: string) => ({ label, votes: [] })),
           }
         : null,
+    uploadMeta,
     author,
-    storagePath: uploadedMedia?.publicId ?? "",
+    storagePath: primaryMediaItem?.storagePath ?? "",
     createdAt: serverTimestamp(),
   });
 
@@ -662,6 +887,7 @@ export async function repostPost(postId: string, quoteCaption = "") {
     caption,
     mediaUrl: post.mediaUrl,
     mediaType: post.mediaType,
+    mediaItems: post.mediaItems ?? [{ url: post.mediaUrl, type: post.mediaType, storagePath: post.storagePath }],
     contentType: post.contentType,
     postType: "standard",
     sport: post.sport,
@@ -672,6 +898,7 @@ export async function repostPost(postId: string, quoteCaption = "") {
     hashtags: Array.from(new Set([...post.hashtags, ...extractHashtags(caption)])),
     views: 0,
     completedViews: 0,
+    uploadMeta: post.uploadMeta ?? null,
     author,
     originalPostId: postId,
     createdAt: serverTimestamp(),

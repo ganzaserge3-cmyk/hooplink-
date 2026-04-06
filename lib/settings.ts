@@ -17,6 +17,7 @@ export interface UserSettings {
   availabilityStatus: "available" | "locked_in" | "recovering";
   headline: string;
   emailDigestFrequency: "off" | "daily" | "weekly";
+  notificationDeliveryMode: "off" | "push" | "email" | "both";
   pushNotificationsEnabled: boolean;
   pushPermission: "default" | "granted" | "denied";
   notificationPreferences: {
@@ -26,6 +27,11 @@ export interface UserSettings {
     messages: boolean;
     reposts: boolean;
     reports: boolean;
+    recruiting: boolean;
+    teamUpdates: boolean;
+    bookings: boolean;
+    safetyCompliance: boolean;
+    performanceWellness: boolean;
   };
   followedTopics: string[];
   pinnedPosts: string[];
@@ -35,6 +41,7 @@ const defaultSettings: UserSettings = {
   availabilityStatus: "available",
   headline: "",
   emailDigestFrequency: "off",
+  notificationDeliveryMode: "off",
   pushNotificationsEnabled: false,
   pushPermission: "default",
   notificationPreferences: {
@@ -44,6 +51,11 @@ const defaultSettings: UserSettings = {
     messages: true,
     reposts: true,
     reports: true,
+    recruiting: true,
+    teamUpdates: true,
+    bookings: true,
+    safetyCompliance: true,
+    performanceWellness: true,
   },
   followedTopics: [],
   pinnedPosts: [],
@@ -59,6 +71,24 @@ export async function getCurrentUserSettings(): Promise<UserSettings> {
   const settings = (data.settings as Record<string, unknown> | undefined) ?? {};
   const notificationPreferences =
     (settings.notificationPreferences as Record<string, unknown> | undefined) ?? {};
+  const emailDigestFrequency =
+    settings.emailDigestFrequency === "daily" || settings.emailDigestFrequency === "weekly"
+      ? settings.emailDigestFrequency
+      : "off";
+  const pushNotificationsEnabled = settings.pushNotificationsEnabled === true;
+  const notificationDeliveryMode =
+    settings.notificationDeliveryMode === "push" ||
+    settings.notificationDeliveryMode === "email" ||
+    settings.notificationDeliveryMode === "both" ||
+    settings.notificationDeliveryMode === "off"
+      ? settings.notificationDeliveryMode
+      : pushNotificationsEnabled && emailDigestFrequency !== "off"
+        ? "both"
+        : pushNotificationsEnabled
+          ? "push"
+          : emailDigestFrequency !== "off"
+            ? "email"
+            : "off";
 
   return {
     availabilityStatus:
@@ -66,11 +96,9 @@ export async function getCurrentUserSettings(): Promise<UserSettings> {
         ? settings.availabilityStatus
         : "available",
     headline: String(settings.headline ?? ""),
-    emailDigestFrequency:
-      settings.emailDigestFrequency === "daily" || settings.emailDigestFrequency === "weekly"
-        ? settings.emailDigestFrequency
-        : "off",
-    pushNotificationsEnabled: settings.pushNotificationsEnabled === true,
+    emailDigestFrequency,
+    notificationDeliveryMode,
+    pushNotificationsEnabled,
     pushPermission:
       settings.pushPermission === "granted" || settings.pushPermission === "denied"
         ? settings.pushPermission
@@ -82,6 +110,11 @@ export async function getCurrentUserSettings(): Promise<UserSettings> {
       messages: notificationPreferences.messages !== false,
       reposts: notificationPreferences.reposts !== false,
       reports: notificationPreferences.reports !== false,
+      recruiting: notificationPreferences.recruiting !== false,
+      teamUpdates: notificationPreferences.teamUpdates !== false,
+      bookings: notificationPreferences.bookings !== false,
+      safetyCompliance: notificationPreferences.safetyCompliance !== false,
+      performanceWellness: notificationPreferences.performanceWellness !== false,
     },
     followedTopics: Array.isArray(data.followedTopics) ? (data.followedTopics as string[]) : [],
     pinnedPosts: Array.isArray(data.pinnedPosts) ? (data.pinnedPosts as string[]) : [],
@@ -101,6 +134,9 @@ export async function updateCurrentUserSettings(input: Partial<UserSettings>) {
         ...(typeof input.headline === "string" ? { headline: input.headline.trim() } : {}),
         ...(input.emailDigestFrequency
           ? { emailDigestFrequency: input.emailDigestFrequency }
+          : {}),
+        ...(input.notificationDeliveryMode
+          ? { notificationDeliveryMode: input.notificationDeliveryMode }
           : {}),
         ...(typeof input.pushNotificationsEnabled === "boolean"
           ? { pushNotificationsEnabled: input.pushNotificationsEnabled }

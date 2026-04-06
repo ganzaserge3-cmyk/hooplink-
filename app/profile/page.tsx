@@ -14,6 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { deletePost, subscribeToUserPosts, togglePostLike, type FeedPost } from "@/lib/posts";
 import { getCurrentSeasonDashboard, getRecoverySnapshot, type SeasonalDashboard } from "@/lib/performance";
 import { getCurrentUserSettings, togglePinnedPost, type UserSettings } from "@/lib/settings";
+import { getStoryHighlightCollectionsForUser, type StoryHighlightCollectionWithStories } from "@/lib/stories";
 import { getCurrentUserProfile } from "@/lib/user-profile";
 
 interface StoredProfile {
@@ -187,6 +188,7 @@ function ProfilePageContent() {
     latest: { status: string; date: string; energy: number; soreness: number } | null;
     streak: number;
   } | null>(null);
+  const [storyHighlights, setStoryHighlights] = useState<StoryHighlightCollectionWithStories[]>([]);
 
   useEffect(() => {
     if (!user) {
@@ -223,6 +225,12 @@ function ProfilePageContent() {
           setProfileLoading(false);
         }
       });
+
+    void getStoryHighlightCollectionsForUser(user.uid).then((collections) => {
+      if (!cancelled) {
+        setStoryHighlights(collections);
+      }
+    });
 
     const unsubscribe = subscribeToUserPosts(user.uid, setPosts);
     return () => {
@@ -576,7 +584,7 @@ function ProfilePageContent() {
               ) : null}
 
               {profileTab === "media" ? (
-                <div className="grid gap-4 lg:grid-cols-2">
+                <div className="grid gap-4 lg:grid-cols-3">
                   <div className="rounded-2xl border p-4">
                     <h2 className="font-semibold">Media and Share Tools</h2>
                     <div className="mt-3 flex flex-wrap gap-2">
@@ -587,6 +595,38 @@ function ProfilePageContent() {
                     </div>
                     {profile?.profileExtras?.introVideoUrl ? <p className="mt-3 text-sm text-muted-foreground">Intro video ready</p> : null}
                     {profile?.profileExtras?.audioIntroUrl ? <p className="text-sm text-muted-foreground">Audio intro ready</p> : null}
+                  </div>
+                  <div className="rounded-2xl border p-4">
+                    <h2 className="font-semibold">Story Highlights</h2>
+                    {storyHighlights.length ? (
+                      <div className="mt-3 space-y-3">
+                        {storyHighlights.slice(0, 4).map((collection) => (
+                          <div key={collection.id} className="rounded-xl bg-muted p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="font-medium">{collection.title}</p>
+                              <span className="text-xs text-muted-foreground">{collection.stories.length} stories</span>
+                            </div>
+                            <div className="mt-3 grid grid-cols-3 gap-2">
+                              {collection.stories.slice(0, 3).map((story) => (
+                                <div key={story.id} className="overflow-hidden rounded-lg bg-background">
+                                  {story.mediaType === "video" ? (
+                                    <video src={story.mediaUrl} className="aspect-square w-full object-cover" />
+                                  ) : story.mediaType === "text" ? (
+                                    <div className="aspect-square bg-gradient-to-br from-orange-500 via-rose-500 to-slate-900 p-3 text-xs font-semibold text-white">
+                                      {story.textCard?.title || story.caption || collection.title}
+                                    </div>
+                                  ) : (
+                                    <img src={story.mediaUrl} alt={story.caption || collection.title} className="aspect-square w-full object-cover" />
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-sm text-muted-foreground">Save stories to highlight collections from the stories workspace to feature them here.</p>
+                    )}
                   </div>
                   <div className="rounded-2xl border p-4">
                     <h2 className="font-semibold">Brands and Partnerships</h2>
