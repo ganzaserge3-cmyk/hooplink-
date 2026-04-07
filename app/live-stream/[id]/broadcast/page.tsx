@@ -194,7 +194,7 @@ export default function BroadcastPage() {
       <div className="container mx-auto py-8">
         <div className="text-center">
           <h1 className="text-3xl font-bold mb-4">Stream not found</h1>
-          <p>You don't have permission to broadcast this stream.</p>
+          <p>You don&apos;t have permission to broadcast this stream.</p>
           <Button asChild className="mt-4">
             <Link href="/live-stream">Back to Live Streams</Link>
           </Button>

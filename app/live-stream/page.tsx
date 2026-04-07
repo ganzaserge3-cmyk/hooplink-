@@ -318,7 +318,7 @@ export default function LiveStreamsPage() {
                 <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No streams yet</h3>
                 <p className="text-muted-foreground mb-4">
-                  You haven't created any live streams yet.
+                  You haven&apos;t created any live streams yet.
                 </p>
                 <Button asChild>
                   <Link href="/live-stream/create">
