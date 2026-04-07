@@ -393,20 +393,22 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-wrap gap-2">
-                {shortcutCatalog.map((item) => (
-                  <button
-                    key={item.href}
-                    type="button"
-                    disabled={savingPrefs}
-                    onClick={() => void toggleShortcut(item.href)}
-                    className={`rounded-full border px-3 py-2 text-sm ${
-                      (profile?.pinnedShortcuts ?? []).includes(item.href) ? "border-primary bg-primary/5 text-primary" : ""
-                    }`}
-                  >
-                    {(profile?.pinnedShortcuts ?? []).includes(item.href) ? <Minus className="mr-2 inline h-4 w-4" /> : <Grip className="mr-2 inline h-4 w-4" />}
-                    {item.label}
-                  </button>
-                ))}
+                {shortcutCatalog
+                  .filter((item): item is { href: string; label: string } => typeof item.href === "string")
+                  .map((item) => (
+                    <button
+                      key={item.href}
+                      type="button"
+                      disabled={savingPrefs}
+                      onClick={() => void toggleShortcut(item.href)}
+                      className={`rounded-full border px-3 py-2 text-sm ${
+                        (profile?.pinnedShortcuts ?? []).includes(item.href) ? "border-primary bg-primary/5 text-primary" : ""
+                      }`}
+                    >
+                      {(profile?.pinnedShortcuts ?? []).includes(item.href) ? <Minus className="mr-2 inline h-4 w-4" /> : <Grip className="mr-2 inline h-4 w-4" />}
+                      {item.label}
+                    </button>
+                  ))}
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
               {shortcuts.map((item) => {
