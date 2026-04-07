@@ -136,7 +136,7 @@ export default function DashboardPage() {
   const activeWidgetIds = profile?.setupPreferences?.homeWidgets?.length
     ? profile.setupPreferences.homeWidgets
     : ["checklist", "shortcuts", "suggestions", "recent"];
-  const shortcuts = shortcutCatalog.filter((item) => pinnedShortcutSet.size === 0 || pinnedShortcutSet.has(item.href));
+  const shortcuts = shortcutCatalog.filter((item) => item.href && (pinnedShortcutSet.size === 0 || pinnedShortcutSet.has(item.href)));
   const primaryGoal = goals[0];
   const focusMode = profile?.setupPreferences?.focusMode === true;
 
