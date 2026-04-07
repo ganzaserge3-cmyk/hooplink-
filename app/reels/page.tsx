@@ -14,10 +14,12 @@ import {
   FeedPost,
   recordPostView,
   repostPost,
+  repostReelAsPost,
   subscribeToComments,
   subscribeToReels,
   togglePostLike,
   toggleSavePost,
+  calculateViralReelScore,
 } from "@/lib/posts";
 
 function ReelsPageContent() {
@@ -34,6 +36,7 @@ function ReelsPageContent() {
   const [shareMessage, setShareMessage] = useState("");
   const [muted, setMuted] = useState(true);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [reposting, setReposting] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -225,6 +228,22 @@ function ReelsPageContent() {
     }
   };
 
+  const handleRepostToFeed = async () => {
+    if (reposting) {
+      return;
+    }
+
+    setReposting(true);
+    try {
+      await repostReelAsPost(reel.id);
+      setShareMessage("Reel posted to your feed.");
+    } catch {
+      setShareMessage("Could not post reel to feed.");
+    } finally {
+      setReposting(false);
+    }
+  };
+
   return (
     <ProtectedRoute>
       <div className="mx-auto max-w-sm space-y-4 bg-black p-4 text-white">
@@ -301,6 +320,22 @@ function ReelsPageContent() {
               <p className="text-lg font-bold">{reel.author.name}</p>
               {reel.sponsored ? <p className="mt-1 text-xs font-semibold uppercase text-amber-300">{reel.sponsorLabel || "Sponsored"}</p> : null}
               <p className="mt-2 text-sm text-white/80">{reel.caption}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <span className="rounded-full bg-emerald-500/20 px-2 py-1 text-xs font-semibold text-emerald-200">
+                  Viral potential: {calculateViralReelScore(reel)}
+                </span>
+                {reel.userId === user.uid ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-full border-white/20 text-white hover:border-white hover:bg-white/10"
+                    onClick={() => void handleRepostToFeed()}
+                    disabled={reposting}
+                  >
+                    {reposting ? "Posting..." : "Post real one"}
+                  </Button>
+                ) : null}
+              </div>
               {reel.autoCaption ? <p className="mt-2 text-xs text-white/70">{reel.autoCaption}</p> : null}
               {reel.translatedCaption ? <p className="mt-2 text-xs text-white/70">{reel.translatedCaption}</p> : null}
               {reel.aiHighlightAnalysis ? <p className="mt-2 text-xs text-white/70">{reel.aiHighlightAnalysis}</p> : null}

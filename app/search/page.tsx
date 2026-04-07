@@ -99,28 +99,34 @@ function SearchPageContent() {
           ) : (
             <div className="divide-y divide-slate-800">
               {visibleProfiles.map((profile) => (
-                <Link
-                  key={profile.uid}
-                  href={`/profile/${profile.uid}`}
-                  className="flex items-center gap-3 px-5 py-4 transition hover:bg-slate-900/90"
-                >
-                  <img
-                    src={profile.photoURL || "https://placehold.co/96x96?text=U"}
-                    alt={profile.displayName}
-                    className="h-14 w-14 rounded-full object-cover"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold text-white">
-                      {profile.username ? `@${profile.username}` : profile.displayName}
-                    </p>
-                    <p className="truncate text-sm text-slate-400">{profile.displayName}</p>
-                    <p className="truncate text-sm text-slate-400">
-                      {[profile.role?.sport, profile.role?.position, profile.role?.team]
-                        .filter(Boolean)
-                        .join(" • ")}
-                    </p>
+                <div key={profile.uid} className="flex flex-col gap-3 px-5 py-4 transition hover:bg-slate-900/90 sm:flex-row sm:items-center sm:justify-between">
+                  <Link href={`/profile/${profile.uid}`} className="flex items-center gap-3 min-w-0">
+                    <img
+                      src={profile.photoURL || "https://placehold.co/96x96?text=U"}
+                      alt={profile.displayName}
+                      className="h-14 w-14 rounded-full object-cover"
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-white">
+                        {profile.username ? `@${profile.username}` : profile.displayName}
+                      </p>
+                      <p className="truncate text-sm text-slate-400">{profile.displayName}</p>
+                      <p className="truncate text-sm text-slate-400">
+                        {[profile.role?.sport, profile.role?.position, profile.role?.team]
+                          .filter(Boolean)
+                          .join(" • ")}
+                      </p>
+                    </div>
+                  </Link>
+                  <div className="flex flex-wrap gap-2">
+                    <Link href={`/messages?user=${profile.uid}`} className="rounded-full border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-100 transition hover:bg-slate-700">
+                      Message
+                    </Link>
+                    <Link href={`/profile/${profile.uid}`} className="rounded-full border border-slate-700 bg-transparent px-3 py-1.5 text-xs text-slate-100 transition hover:bg-slate-900">
+                      View profile
+                    </Link>
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
           )}

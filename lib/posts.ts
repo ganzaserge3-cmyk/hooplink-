@@ -23,6 +23,7 @@ import { auth, db } from "@/lib/firebase";
 import { recordViewedPost } from "@/lib/history";
 import { createNotification } from "@/lib/notifications";
 import { recordPostForStreak, updateLikesReceived } from "@/lib/achievements";
+import { initializeUserGamification, updateActivityStreak, addPoints, checkAndAwardAchievements } from "@/lib/gamification";
 
 export interface FeedPost {
   id: string;
@@ -787,7 +788,155 @@ export async function createPost({
   );
 
   await incrementUserCounter(user.uid, contentType === "reel" ? "reelsCount" : "postsCount", 1);
+
+  // Gamification integration
+  await initializeUserGamification(user.uid);
+  await updateActivityStreak(user.uid);
+  await addPoints(user.uid, contentType === "reel" ? 15 : 10, `created_${contentType}`);
+
+  // Check for achievements
+  const userData = await getCurrentAuthorProfile();
+  const fullUserData = await getDoc(doc(db, "users", user.uid));
+  if (fullUserData.exists()) {
+    await checkAndAwardAchievements(user.uid, fullUserData.data());
+  }
+
   void recordPostForStreak(contentType);
+}
+
+export async function repostReelAsPost(reelId: string) {
+  if (!auth?.currentUser || !db) {
+    throw new Error("You must be signed in.");
+  }
+
+  const reelSnapshot = await getDoc(doc(db, "posts", reelId));
+  if (!reelSnapshot.exists()) {
+    throw new Error("Reel not found.");
+  }
+
+  const reel = mapPost(reelSnapshot.id, reelSnapshot.data() as Record<string, unknown>);
+  if (reel.contentType !== "reel") {
+    throw new Error("Only reels can be reposted as a real feed post.");
+  }
+
+  if (reel.userId !== auth.currentUser.uid) {
+    throw new Error("Only the reel owner can cross-post this reel.");
+  }
+
+  await addDoc(collection(db, "posts"), {
+    userId: auth.currentUser.uid,
+    caption: reel.caption,
+    mediaUrl: reel.mediaUrl,
+    mediaType: reel.mediaType,
+    mediaItems: reel.mediaItems,
+    contentType: "post",
+    postType: "standard",
+    sport: reel.sport,
+    likes: [],
+    commentsCount: 0,
+    shares: 0,
+    saves: [],
+    hashtags: reel.hashtags,
+    views: 0,
+    completedViews: 0,
+    mentionUserIds: reel.mentionUserIds,
+    collaborators: reel.collaborators,
+    remixOf: reel.id,
+    scheduledFor: null,
+    visibility: reel.visibility,
+    premiumGroupId: reel.premiumGroupId,
+    sponsored: false,
+    sponsorLabel: null,
+    autoCaption: reel.autoCaption,
+    translatedCaption: reel.translatedCaption,
+    accessibilityLabel: reel.accessibilityLabel,
+    aiHighlightAnalysis: reel.aiHighlightAnalysis,
+    voiceoverScript: reel.voiceoverScript,
+    thumbnailHint: reel.thumbnailHint,
+    clipStartSec: reel.clipStartSec,
+    clipEndSec: reel.clipEndSec,
+    watermarkEnabled: reel.watermarkEnabled,
+    downloadProtected: reel.downloadProtected,
+    rightClickProtected: reel.rightClickProtected,
+    questionPrompt: reel.questionPrompt,
+    poll: reel.poll,
+    uploadMeta: reel.uploadMeta,
+    author: await getCurrentAuthorProfile().then((result) => result.author),
+    storagePath: reel.storagePath,
+    originalPostId: reel.id,
+    createdAt: serverTimestamp(),
+  });
+
+  await incrementUserCounter(auth.currentUser.uid, "postsCount", 1);
+  await addPoints(auth.currentUser.uid, 12, "reel_to_post");
+}
+
+export function calculateViralReelScore(post: FeedPost) {
+  if (post.contentType !== "reel") {
+    return 0;
+  }
+
+  const engagementScore =
+    post.likes.length * 1 +
+    post.commentsCount * 2 +
+    post.saves.length * 3 +
+    post.shares * 4 +
+    Math.round((post.completedViews ?? 0) * 0.05);
+
+  const hoursSincePost =
+    post.createdAt?.seconds ? (Date.now() / 1000 - post.createdAt.seconds) / 3600 : 999;
+  const recencyBonus = Math.max(0, 24 - hoursSincePost) * 0.5;
+  const hashtagBonus = Math.min(post.hashtags.length, 3);
+  const captionHotness = /reel|highlight|viral|spotlight/i.test(post.caption) ? 1 : 0;
+
+  return Math.round(engagementScore + recencyBonus + hashtagBonus + captionHotness + 2);
+}
+
+function scorePosts(
+  posts: FeedPost[],
+  following: string[],
+  preferredSport: string,
+  followedTopics: string[],
+  viewerLocation: string,
+  viewerTeam: string
+) {
+  const normalizedTopics = followedTopics.map((topic) => topic.toLowerCase());
+  const normalizedLocation = viewerLocation.trim().toLowerCase();
+  const normalizedTeam = viewerTeam.trim().toLowerCase();
+
+  return [...posts].sort((a, b) => {
+    const baseAScore =
+      (following.includes(a.userId) ? 4 : 0) +
+      (preferredSport && a.sport.toLowerCase() === preferredSport.toLowerCase() ? 2 : 0) +
+      (a.hashtags.some((tag) => normalizedTopics.includes(tag.toLowerCase())) ? 2 : 0) +
+      (normalizedLocation && a.author.location?.toLowerCase() === normalizedLocation ? 1 : 0) +
+      (normalizedTeam && a.author.team?.toLowerCase() === normalizedTeam ? 1 : 0);
+    const baseBScore =
+      (following.includes(b.userId) ? 4 : 0) +
+      (preferredSport && b.sport.toLowerCase() === preferredSport.toLowerCase() ? 2 : 0) +
+      (b.hashtags.some((tag) => normalizedTopics.includes(tag.toLowerCase())) ? 2 : 0) +
+      (normalizedLocation && b.author.location?.toLowerCase() === normalizedLocation ? 1 : 0) +
+      (normalizedTeam && b.author.team?.toLowerCase() === normalizedTeam ? 1 : 0);
+
+    const aViral = calculateViralReelScore(a);
+    const bViral = calculateViralReelScore(b);
+
+    const aScore = baseAScore + aViral;
+    const bScore = baseBScore + bViral;
+
+    if (aScore !== bScore) {
+      return bScore - aScore;
+    }
+
+    const aTime = a.createdAt?.seconds ?? 0;
+    const bTime = b.createdAt?.seconds ?? 0;
+    return bTime - aTime;
+  });
+}
+
+function isVisiblePost(post: FeedPost) {
+  const scheduledSeconds = post.scheduledFor?.seconds ?? 0;
+  return !scheduledSeconds || scheduledSeconds <= Math.floor(Date.now() / 1000);
 }
 
 export async function updatePost(postId: string, input: { caption: string; sport: string }) {
@@ -1126,49 +1275,6 @@ export async function toggleCommentReaction(commentId: string, emoji: string) {
   );
 }
 
-function scorePosts(
-  posts: FeedPost[],
-  following: string[],
-  preferredSport: string,
-  followedTopics: string[],
-  viewerLocation: string,
-  viewerTeam: string
-) {
-  const normalizedTopics = followedTopics.map((topic) => topic.toLowerCase());
-  const normalizedLocation = viewerLocation.trim().toLowerCase();
-  const normalizedTeam = viewerTeam.trim().toLowerCase();
-
-  return [...posts].sort((a, b) => {
-    const aScore =
-      (following.includes(a.userId) ? 4 : 0) +
-      (preferredSport && a.sport.toLowerCase() === preferredSport.toLowerCase() ? 2 : 0) +
-      (a.hashtags.some((tag) => normalizedTopics.includes(tag.toLowerCase())) ? 2 : 0) +
-      (normalizedLocation && a.author.location?.toLowerCase() === normalizedLocation ? 1 : 0) +
-      (normalizedTeam && a.author.team?.toLowerCase() === normalizedTeam ? 1 : 0) +
-      (a.contentType === "reel" ? 1 : 0);
-    const bScore =
-      (following.includes(b.userId) ? 4 : 0) +
-      (preferredSport && b.sport.toLowerCase() === preferredSport.toLowerCase() ? 2 : 0) +
-      (b.hashtags.some((tag) => normalizedTopics.includes(tag.toLowerCase())) ? 2 : 0) +
-      (normalizedLocation && b.author.location?.toLowerCase() === normalizedLocation ? 1 : 0) +
-      (normalizedTeam && b.author.team?.toLowerCase() === normalizedTeam ? 1 : 0) +
-      (b.contentType === "reel" ? 1 : 0);
-
-    if (aScore !== bScore) {
-      return bScore - aScore;
-    }
-
-    const aTime = a.createdAt?.seconds ?? 0;
-    const bTime = b.createdAt?.seconds ?? 0;
-    return bTime - aTime;
-  });
-}
-
-function isVisiblePost(post: FeedPost) {
-  const scheduledSeconds = post.scheduledFor?.seconds ?? 0;
-  return !scheduledSeconds || scheduledSeconds <= Math.floor(Date.now() / 1000);
-}
-
 function canAccessPost(
   post: FeedPost,
   viewerProfile: {
@@ -1267,7 +1373,7 @@ export function subscribeToReels(
     collection(db, "posts"),
     where("contentType", "==", "reel"),
     orderBy("createdAt", "desc"),
-    limit(24)
+    limit(48)
   );
 
   let stopped = false;

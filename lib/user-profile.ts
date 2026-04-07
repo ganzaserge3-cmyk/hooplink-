@@ -15,6 +15,7 @@ import { uploadToCloudinary } from "@/lib/cloudinary";
 import { auth, db } from "@/lib/firebase";
 import { createNotification } from "@/lib/notifications";
 import { recordFollowerGrowth } from "@/lib/profile-analytics";
+import { checkAndAwardAchievements, initializeUserGamification, updateActivityStreak, addPoints } from "@/lib/gamification";
 
 export type HoopLinkRole = "athlete" | "coach" | "scout" | "fan";
 export type OnboardingGoal =
@@ -940,6 +941,10 @@ export async function toggleFollowUser(targetUid: string, isFollowing: boolean) 
     return;
   }
 
+  // Initialize gamification for both users if needed
+  await initializeUserGamification(currentUid);
+  await initializeUserGamification(targetUid);
+
   await setDoc(
     doc(db, "users", currentUid),
     {
@@ -962,6 +967,25 @@ export async function toggleFollowUser(targetUid: string, isFollowing: boolean) 
   const targetData = targetSnapshot.exists() ? (targetSnapshot.data() as Record<string, unknown>) : null;
   const nextFollowers = Array.isArray(targetData?.followers) ? (targetData?.followers as string[]) : [];
   await recordFollowerGrowth(targetUid, nextFollowers.length);
+
+  // Update activity streak and check achievements
+  await updateActivityStreak(currentUid);
+
+  // Check achievements for both users
+  const currentUserData = await getUserProfileById(currentUid);
+  const targetUserData = await getUserProfileById(targetUid);
+
+  if (currentUserData) {
+    await checkAndAwardAchievements(currentUid, currentUserData);
+  }
+  if (targetUserData) {
+    await checkAndAwardAchievements(targetUid, targetUserData);
+  }
+
+  // Award points for following/unfollowing
+  if (!isFollowing) {
+    await addPoints(currentUid, 5, "followed_user");
+  }
 
   if (!isFollowing) {
     await createNotification({

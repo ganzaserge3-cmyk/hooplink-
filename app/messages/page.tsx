@@ -234,9 +234,12 @@ function MessagesPageContent() {
               <h1 className="text-3xl font-bold">Messages & Community</h1>
               <p className="text-sm text-muted-foreground">Real-time chat for teams, recruiting, creators, moderation, reminders, and community rooms.</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button variant="outline" size="sm" onClick={() => setShowArchived((v) => !v)}><Archive className="mr-2 h-4 w-4" />{showArchived ? "Inbox" : "Archived"}</Button>
               <Button variant="outline" size="sm" onClick={() => setInboxFilter("unread")}><Bell className="mr-2 h-4 w-4" />Unread</Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/search"><Sparkles className="mr-2 h-4 w-4" />New DM</Link>
+              </Button>
             </div>
           </div>
 
@@ -251,13 +254,14 @@ function MessagesPageContent() {
               <div className="rounded-3xl border p-3">
                 <p className="mb-2 text-sm font-semibold">Smart suggestions</p>
                 <div className="flex flex-wrap gap-2">{conversations.slice(0, 4).map((c) => <button key={c.id} type="button" onClick={() => setActiveConversationId(c.id)} className="rounded-full border px-3 py-1.5 text-xs"><Sparkles className="mr-1 inline h-3 w-3" />{c.roomTopic || badgeLabel(c)}</button>)}</div>
-                <p className="mb-2 mt-4 text-sm font-semibold">Icebreakers</p>
-                <div className="flex flex-wrap gap-2">{ICEBREAKERS.map((prompt) => <button key={prompt} type="button" onClick={() => { setComposerMode("text"); setDraft(prompt); }} className="rounded-full border px-3 py-1.5 text-xs">{prompt}</button>)}</div>
+                <p className="mb-2 mt-4 text-sm font-semibold">Direct messaging</p>
+                <div className="flex flex-wrap gap-2"><Link href="/search" className="rounded-full border px-3 py-1.5 text-xs">Search people</Link><Link href="/profile" className="rounded-full border px-3 py-1.5 text-xs">My profile</Link><Link href="/messages" className="rounded-full border px-3 py-1.5 text-xs">Refresh inbox</Link></div>
               </div>
               <div className="space-y-2">
                 {visibleConversations.length === 0 ? <div className="rounded-3xl border border-dashed p-6 text-center text-sm text-muted-foreground">No conversations yet.</div> : visibleConversations.map((conversation) => {
                   const other = conversation.participantProfiles.find((p) => p.uid !== currentUserId) ?? conversation.participantProfiles[0];
-                  return <button key={conversation.id} type="button" onClick={() => setActiveConversationId(conversation.id)} className={`w-full rounded-3xl border p-3 text-left ${activeConversationId === conversation.id ? "border-primary/20 bg-muted/80" : "border-transparent hover:bg-muted/60"}`}><div className="flex items-center gap-3"><img src={other?.photoURL || "https://placehold.co/64x64?text=M"} alt={other?.displayName || "Conversation"} className="h-12 w-12 rounded-full object-cover" /><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><p className="truncate font-semibold">{other?.displayName || badgeLabel(conversation)}</p><span className="text-xs text-muted-foreground">{conversation.updatedAt ? formatTimeAgo(conversation.updatedAt) : ""}</span></div><p className="truncate text-xs text-primary">{badgeLabel(conversation)}</p><p className="truncate text-sm text-muted-foreground">{conversation.typingBy.includes(other?.uid || "") ? "Typing..." : conversation.lastMessage || "Open chat"}</p><p className="mt-1 text-[11px] text-muted-foreground">{conversation.presenceBy?.[other?.uid || ""] === "online" ? "Online" : formatLastSeen(conversation.lastSeenBy?.[other?.uid || ""])}</p></div></div></button>;
+                  const hasUnread = conversation.unreadBy.includes(currentUserId);
+                return <button key={conversation.id} type="button" onClick={() => setActiveConversationId(conversation.id)} className={`w-full rounded-3xl border p-3 text-left ${activeConversationId === conversation.id ? "border-primary/20 bg-muted/80" : "border-transparent hover:bg-muted/60"}`}><div className="flex items-center gap-3"><img src={other?.photoURL || "https://placehold.co/64x64?text=M"} alt={other?.displayName || "Conversation"} className="h-12 w-12 rounded-full object-cover" /><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><p className="truncate font-semibold">{other?.displayName || badgeLabel(conversation)}</p><span className="text-xs text-muted-foreground">{conversation.updatedAt ? formatTimeAgo(conversation.updatedAt) : ""}</span></div><div className="mt-1 flex items-center justify-between gap-2"><p className="truncate text-xs text-primary">{badgeLabel(conversation)}</p>{hasUnread ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900">New</span> : null}</div><p className="truncate text-sm text-muted-foreground">{conversation.typingBy.includes(other?.uid || "") ? "Typing..." : conversation.lastMessage || "Open chat"}</p><p className="mt-1 text-[11px] text-muted-foreground">{conversation.presenceBy?.[other?.uid || ""] === "online" ? "Online" : formatLastSeen(conversation.lastSeenBy?.[other?.uid || ""])}</p></div></div></button>;
                 })}
               </div>
             </div>

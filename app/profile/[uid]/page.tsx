@@ -485,6 +485,14 @@ export default function PublicProfilePage({ params }: { params: { uid: string } 
                     >
                       Copy Link
                     </Button>
+                    {isSelf && (
+                      <Button variant="outline" asChild>
+                        <Link href="/gamification">
+                          <Trophy className="mr-2 h-4 w-4" />
+                          Achievements
+                        </Link>
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       disabled={!user || subscriptionPending}

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { BadgeCheck, Bookmark, Brain, Dribbble, Dumbbell, Ellipsis, Film, GraduationCap, Grid3X3, Heart, LayoutGrid, LineChart, Link2, Mic, Pencil, Pin, PlaySquare, QrCode, Quote, Settings, ShieldPlus, Sparkles, Trophy, Trash2, Users, Video } from "lucide-react";
+import { BadgeCheck, Bookmark, Brain, Dribbble, Dumbbell, Ellipsis, Film, GraduationCap, Grid3X3, Heart, LayoutGrid, LineChart, Link2, Mic, Pencil, Pin, PlaySquare, QrCode, Quote, Settings, ShieldPlus, Sparkles, Target, Trophy, Trash2, Users, Video } from "lucide-react";
 import { History } from "lucide-react";
 
 import { AuthProvider, useAuthContext } from "@/components/AuthProvider";
@@ -285,6 +285,8 @@ function ProfilePageContent() {
     { href: "/performance", label: "Performance", icon: ShieldPlus },
     { href: "/training", label: "Training", icon: Dumbbell },
     { href: "/recruiting-ready", label: "Recruiting", icon: GraduationCap },
+    { href: "/mentorship", label: "Mentorship", icon: Users },
+    { href: "/virtual-tryouts", label: "Tryouts", icon: Target },
     { href: "/teams", label: "Teams", icon: Users },
     { href: "/ai-coach", label: "AI Coach", icon: Brain },
   ];

@@ -47,6 +47,7 @@ const workspaceGroups = [
       { href: "/training", label: "Training", icon: Dumbbell },
       { href: "/wellness", label: "Wellness", icon: Dumbbell },
       { href: "/recruiting-ready", label: "Recruiting", icon: GraduationCap },
+      { href: "/mentorship", label: "Mentorship", icon: Users },
       { href: "/directory", label: "Directory", icon: Compass },
       { href: "/events", label: "Events", icon: Ticket },
       { href: "/transition-hub", label: "Transition", icon: UserPlus },
@@ -58,6 +59,7 @@ const workspaceGroups = [
     items: [
       { href: "/groups", label: "Groups", icon: Gem },
       { href: "/live", label: "Live", icon: Radio },
+      { href: "/virtual-tryouts", label: "Tryouts", icon: Target },
       { href: "/podcasts", label: "Podcasts", icon: Mic2 },
       { href: "/community", label: "Community" },
       { href: "/platform", label: "Platform", icon: Workflow },

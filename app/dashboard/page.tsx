@@ -10,6 +10,7 @@ import {
   Lightbulb,
   MessageCircle,
   Minus,
+  Play,
   Search,
   Sparkles,
   Target,
@@ -60,13 +61,12 @@ const shortcutCatalog = [
   { href: "/messages", label: "Open messages", description: "Reply faster and keep momentum going.", icon: MessageCircle },
   { href: "/feed", label: "Open feed", description: "See what your community is posting.", icon: Compass },
   { href: "/recruiting-ready", label: "Recruiting hub", description: "Build a more discoverable profile.", icon: Trophy },
-];
-
-const widgetCatalog = [
-  { id: "checklist", label: "Checklist" },
-  { id: "shortcuts", label: "Shortcuts" },
+  { href: "/mentorship", label: "Mentorship", description: "Connect with coaches and advisors.", icon: Users },
+  { href: "/virtual-tryouts", label: "Virtual Tryouts", description: "Request or host tryout sessions.", icon: Target },
   { id: "suggestions", label: "Suggestions" },
   { id: "recent", label: "Recent pages" },
+  { id: "gamification", label: "Gamification" },
+  { id: "live-streams", label: "Live Streams" },
 ];
 
 const pageLabels: Record<string, string> = {
@@ -330,6 +330,30 @@ export default function DashboardPage() {
               </Button>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl">Gamification</CardTitle>
+              <CardDescription>
+                Earn points, unlock achievements, and level up your HoopLink experience.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Trophy className="h-8 w-8 text-primary" />
+                <div>
+                  <p className="font-semibold">Level up your game</p>
+                  <p className="text-sm text-muted-foreground">Complete challenges and earn rewards</p>
+                </div>
+              </div>
+              <Button className="w-full" variant="outline" asChild>
+                <Link href="/gamification">
+                  View Achievements
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[0.95fr,1.05fr]">
@@ -477,6 +501,75 @@ export default function DashboardPage() {
                       ? `Next best step: use ${primaryGoal === "get_recruited" ? "Recruiting Hub" : primaryGoal === "book_sessions" ? "Bookings" : "Feed + Upload"} to support your main goal.`
                       : "Next best step: finish one setup item, then upload or search."}
                   </p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {activeWidgetIds.includes("gamification") ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-xl">Daily Challenges</CardTitle>
+                <CardDescription>Complete these challenges to earn points and level up.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="rounded-2xl border p-4 text-sm">
+                  <Trophy className="mr-2 inline h-4 w-4 text-primary" />
+                  <span className="font-semibold">Upload a highlight today</span>
+                  <p className="mt-1 text-muted-foreground">Earn 50 points for sharing your skills</p>
+                </div>
+                <div className="rounded-2xl border p-4 text-sm">
+                  <Users className="mr-2 inline h-4 w-4 text-primary" />
+                  <span className="font-semibold">Follow 3 new athletes</span>
+                  <p className="mt-1 text-muted-foreground">Earn 30 points for expanding your network</p>
+                </div>
+                <div className="rounded-2xl border p-4 text-sm">
+                  <MessageCircle className="mr-2 inline h-4 w-4 text-primary" />
+                  <span className="font-semibold">Send a message</span>
+                  <p className="mt-1 text-muted-foreground">Earn 20 points for starting conversations</p>
+                </div>
+                <Button className="w-full" variant="outline" asChild>
+                  <Link href="/gamification">
+                    View All Challenges
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {activeWidgetIds.includes("live-streams") ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-xl">Live Streams</CardTitle>
+                <CardDescription>Join live training sessions and broadcasts.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="rounded-2xl border p-4 text-sm">
+                  <Play className="mr-2 inline h-4 w-4 text-red-500" />
+                  <span className="font-semibold">Morning Basketball Training</span>
+                  <p className="mt-1 text-muted-foreground">Coach Johnson • 24 viewers</p>
+                </div>
+                <div className="rounded-2xl border p-4 text-sm">
+                  <Play className="mr-2 inline h-4 w-4 text-red-500" />
+                  <span className="font-semibold">Recruiting Q&A Session</span>
+                  <p className="mt-1 text-muted-foreground">Scout Davis • 156 viewers</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button className="flex-1" variant="outline" asChild>
+                    <Link href="/live-stream">
+                      Browse Live
+                      <Play className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                  {user && (
+                    <Button className="flex-1" variant="outline" asChild>
+                      <Link href="/live-stream/create">
+                        Go Live
+                        <Play className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>

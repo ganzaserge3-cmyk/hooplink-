@@ -142,10 +142,10 @@ function DiscoverPageContent() {
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               {filteredProfiles.map((profile) => (
-                <Link key={profile.uid} href={`/profile/${profile.uid}`} className="rounded-xl border p-4 hover:bg-muted/40">
+                <div key={profile.uid} className="rounded-xl border p-4 hover:bg-muted/40">
                   <div className="flex gap-3">
                     <img src={profile.photoURL || "https://placehold.co/64x64?text=D"} alt={profile.displayName} className="h-12 w-12 rounded-full" />
-                    <div>
+                    <div className="flex-1">
                       <p className="font-semibold">{profile.displayName}</p>
                       <p className="text-sm text-muted-foreground">
                         {[profile.role?.type, profile.role?.sport, profile.role?.position, profile.location].filter(Boolean).join(" • ")}
@@ -156,7 +156,15 @@ function DiscoverPageContent() {
                       {profile.role?.bio ? <p className="mt-2 text-sm">{profile.role.bio}</p> : null}
                     </div>
                   </div>
-                </Link>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Link href={`/messages?user=${profile.uid}`} className="rounded-full border border-slate-700 bg-muted px-3 py-1.5 text-xs text-slate-100 transition hover:bg-slate-700">
+                      Message
+                    </Link>
+                    <Link href={`/profile/${profile.uid}`} className="rounded-full border border-slate-700 bg-transparent px-3 py-1.5 text-xs text-slate-100 transition hover:bg-muted/40">
+                      View profile
+                    </Link>
+                  </div>
+                </div>
               ))}
             </div>
           </CardContent>

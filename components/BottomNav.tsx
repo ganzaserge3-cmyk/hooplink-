@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, LayoutDashboard, PlusSquare, User, Zap } from "lucide-react";
+import { Home, LayoutDashboard, PlusSquare, User, Zap, Play } from "lucide-react";
 
 import { useAuthContext } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
@@ -22,9 +22,9 @@ export default function BottomNav() {
           <Home className="h-6 w-6" />
           <span className="text-xs">Feed</span>
         </Link>
-        <Link href="/stories" className="flex flex-col items-center gap-1 rounded-lg px-3 py-2 hover:bg-muted">
-          <Zap className="h-6 w-6" />
-          <span className="text-xs">Stories</span>
+        <Link href="/live-stream" className="flex flex-col items-center gap-1 rounded-lg px-3 py-2 hover:bg-muted">
+          <Play className="h-6 w-6" />
+          <span className="text-xs">Live</span>
         </Link>
         <Button size="icon" className="h-12 w-12 rounded-2xl shadow-lg" asChild>
           <Link href="/upload">
