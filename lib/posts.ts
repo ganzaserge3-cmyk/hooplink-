@@ -22,6 +22,7 @@ import { uploadToCloudinary } from "@/lib/cloudinary";
 import { auth, db } from "@/lib/firebase";
 import { recordViewedPost } from "@/lib/history";
 import { createNotification } from "@/lib/notifications";
+import { recordPostForStreak, updateLikesReceived } from "@/lib/achievements";
 
 export interface FeedPost {
   id: string;
@@ -39,6 +40,7 @@ export interface FeedPost {
   sport: string;
   createdAt?: { seconds?: number; nanoseconds?: number } | null;
   likes: string[];
+  reactions?: Record<string, string[]>;
   commentsCount: number;
   shares: number;
   saves: string[];
@@ -325,6 +327,15 @@ function mapPost(id: string, data: Record<string, unknown>): FeedPost {
     createdAt:
       (data.createdAt as { seconds?: number; nanoseconds?: number } | null | undefined) ?? null,
     likes: Array.isArray(data.likes) ? (data.likes as string[]) : [],
+    reactions:
+      data.reactions && typeof data.reactions === "object"
+        ? Object.fromEntries(
+            Object.entries(data.reactions as Record<string, unknown>).map(([emoji, users]) => [
+              emoji,
+              Array.isArray(users) ? (users as string[]) : [],
+            ])
+          )
+        : {},
     commentsCount: Number(data.commentsCount ?? 0),
     shares: Number(data.shares ?? 0),
     saves: Array.isArray(data.saves) ? (data.saves as string[]) : [],
@@ -776,6 +787,7 @@ export async function createPost({
   );
 
   await incrementUserCounter(user.uid, contentType === "reel" ? "reelsCount" : "postsCount", 1);
+  void recordPostForStreak(contentType);
 }
 
 export async function updatePost(postId: string, input: { caption: string; sport: string }) {
@@ -842,6 +854,41 @@ export async function togglePostLike(postId: string, hasLiked: boolean) {
       actorName: auth.currentUser.displayName || "HoopLink User",
       actorAvatar: auth.currentUser.photoURL || "",
       message: `${auth.currentUser.displayName || "Someone"} liked your post.`,
+      postId,
+    });
+    void updateLikesReceived(String(post.userId ?? ""), 1);
+  } else if (hasLiked && post) {
+    void updateLikesReceived(String(post.userId ?? ""), -1);
+  }
+}
+
+export async function togglePostReaction(postId: string, emoji: string) {
+  if (!auth?.currentUser || !db) {
+    throw new Error("You must be signed in to react.");
+  }
+
+  const userId = auth.currentUser.uid;
+  const snapshot = await getDoc(doc(db, "posts", postId));
+  if (!snapshot.exists()) return;
+
+  const post = snapshot.data() as Record<string, unknown>;
+  const reactions = (post.reactions as Record<string, unknown> | undefined) ?? {};
+  const currentUsers = Array.isArray(reactions[emoji]) ? (reactions[emoji] as string[]) : [];
+  const hasReacted = currentUsers.includes(userId);
+  const nextUsers = hasReacted
+    ? currentUsers.filter((uid) => uid !== userId)
+    : [...currentUsers, userId];
+
+  await setDoc(doc(db, "posts", postId), { reactions: { ...reactions, [emoji]: nextUsers } }, { merge: true });
+
+  if (!hasReacted && String(post.userId ?? "") !== userId) {
+    await createNotification({
+      type: "like",
+      recipientId: String(post.userId ?? ""),
+      actorId: userId,
+      actorName: auth.currentUser.displayName || "HoopLink User",
+      actorAvatar: auth.currentUser.photoURL || "",
+      message: `${auth.currentUser.displayName || "Someone"} reacted ${emoji} to your post.`,
       postId,
     });
   }

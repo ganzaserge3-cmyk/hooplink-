@@ -35,6 +35,7 @@ import {
   toggleCommentReaction,
   togglePollVote,
   togglePostLike,
+  togglePostReaction,
   toggleSavePost,
   updatePost,
 } from "@/lib/posts";
