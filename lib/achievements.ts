@@ -191,7 +191,7 @@ export async function getUserAchievements(userId?: string): Promise<Achievement[
     query(collection(db, "achievements"), where("userId", "==", uid), orderBy("unlockedAt", "desc"), limit(50))
   );
 
-  return snapshot.docs.map((docSnapshot) => {
+  return snapshot.docs.map((docSnapshot: any) => {
     const data = docSnapshot.data() as Record<string, unknown>;
     return {
       id: docSnapshot.id,
