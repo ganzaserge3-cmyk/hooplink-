@@ -54,7 +54,15 @@ interface StoredProfile {
   };
 }
 
-const shortcutCatalog = [
+type ShortcutItem = 
+  | { href: string; label: string; description: string; icon: any }
+  | { id: string; label: string };
+
+function isShortcutWithHref(item: ShortcutItem): item is { href: string; label: string; description: string; icon: any } {
+  return 'href' in item;
+}
+
+const shortcutCatalog: ShortcutItem[] = [
   { href: "/upload", label: "Upload highlight", description: "Post your first clip or update.", icon: Upload },
   { href: "/search", label: "Search people", description: "Find athletes, coaches, and scouts.", icon: Search },
   { href: "/teams", label: "Explore teams", description: "Join a roster or build your network.", icon: Users },
@@ -136,7 +144,7 @@ export default function DashboardPage() {
   const activeWidgetIds = profile?.setupPreferences?.homeWidgets?.length
     ? profile.setupPreferences.homeWidgets
     : ["checklist", "shortcuts", "suggestions", "recent"];
-  const shortcuts = shortcutCatalog.filter((item) => item.href && (pinnedShortcutSet.size === 0 || pinnedShortcutSet.has(item.href)));
+  const shortcuts = shortcutCatalog.filter(isShortcutWithHref).filter((item) => pinnedShortcutSet.size === 0 || pinnedShortcutSet.has(item.href));
   const primaryGoal = goals[0];
   const focusMode = profile?.setupPreferences?.focusMode === true;
 
@@ -394,7 +402,7 @@ export default function DashboardPage() {
             <CardContent className="space-y-4">
               <div className="flex flex-wrap gap-2">
                 {shortcutCatalog
-                  .filter((item): item is { href: string; label: string } => typeof item.href === "string")
+                  .filter(isShortcutWithHref)
                   .map((item) => (
                     <button
                       key={item.href}
