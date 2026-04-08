@@ -160,7 +160,7 @@ export async function getLiveStreams(options: {
   const q = query(collection(db, "liveStreams"), ...constraints);
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map(doc => ({
+  return snapshot.docs.map((doc: any) => ({
     id: doc.id,
     ...doc.data(),
     scheduledFor: doc.data().scheduledFor?.toDate(),
@@ -178,8 +178,8 @@ export function subscribeToLiveStreams(callback: (streams: LiveStream[]) => void
     orderBy("createdAt", "desc")
   );
 
-  return onSnapshot(q, (snapshot) => {
-    const streams = snapshot.docs.map(doc => ({
+  return onSnapshot(q, (snapshot: any) => {
+    const streams = snapshot.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data(),
       scheduledFor: doc.data().scheduledFor?.toDate(),
@@ -243,8 +243,8 @@ export function subscribeToChatMessages(streamId: string, callback: (messages: L
     limit(100)
   );
 
-  return onSnapshot(q, (snapshot) => {
-    const messages = snapshot.docs.map(doc => ({
+  return onSnapshot(q, (snapshot: any) => {
+    const messages = snapshot.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data(),
       timestamp: doc.data().timestamp?.toDate(),
@@ -278,8 +278,8 @@ export function subscribeToReactions(streamId: string, callback: (reactions: Liv
     limit(50)
   );
 
-  return onSnapshot(q, (snapshot) => {
-    const reactions = snapshot.docs.map(doc => ({
+  return onSnapshot(q, (snapshot: any) => {
+    const reactions = snapshot.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data(),
       timestamp: doc.data().timestamp?.toDate(),

@@ -747,7 +747,7 @@ export async function updateActivityStreak(uid: string): Promise<void> {
 
     const gamification = gamificationSnap.data() as UserGamification;
     const now = new Date();
-    const lastActivity = gamification.streaks.lastActivity.toDate();
+    const lastActivity = gamification.streaks.lastActivity;
     const daysSinceLastActivity = Math.floor((now.getTime() - lastActivity.getTime()) / (1000 * 60 * 60 * 24));
 
     let newStreak = gamification.streaks.current;

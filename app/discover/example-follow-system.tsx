@@ -11,9 +11,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { FollowButton } from "@/components/FollowButton";
 import { FollowSuggestions } from "@/components/FollowSuggestions";
 import { getFollowStats, getMutualFollowers, type FollowStats } from "@/lib/follow-system";
-import { searchProfiles, getUserProfileById, type PublicProfile } from "@/lib/user-profile";
+import { searchProfiles, getUserProfileById, type SearchProfile } from "@/lib/user-profile";
 
-interface AthleteCard extends PublicProfile {
+interface AthleteCard extends SearchProfile {
   followStats?: FollowStats;
 }
 
@@ -45,11 +45,11 @@ export default function DiscoverExample() {
       setLoading(true);
       // In a real app, you'd have a "trending" query
       // For now, fetch some profiles and sort by followers
-      const profiles = await searchProfiles("athlete", 20);
+      const profiles = await searchProfiles("athlete");
       
       // Enrich with stats
       const enriched = await Promise.all(
-        profiles.map(async (profile) => ({
+        profiles.map(async (profile: SearchProfile) => ({
           ...profile,
           followStats: await getFollowStats(profile.uid || ""),
         }))
@@ -73,10 +73,10 @@ export default function DiscoverExample() {
 
     try {
       setLoading(true);
-      const results = await searchProfiles(term, 20);
+      const results = await searchProfiles(term);
       
       const enriched = await Promise.all(
-        results.map(async (profile) => ({
+        results.map(async (profile: SearchProfile) => ({
           ...profile,
           followStats: await getFollowStats(profile.uid || ""),
         }))

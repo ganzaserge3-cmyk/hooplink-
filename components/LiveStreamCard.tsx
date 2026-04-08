@@ -78,8 +78,6 @@ export function LiveStreamCard({
         return 'ENDED';
       case 'cancelled':
         return 'CANCELLED';
-      default:
-        return status.toUpperCase();
     }
   };
 

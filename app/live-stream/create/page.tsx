@@ -85,6 +85,8 @@ export default function CreateLiveStreamPage() {
         ...formData,
         sport: formData.sport || defaultSport,
         scheduledFor: new Date(), // Start immediately
+        status: 'live' as const,
+        maxViewers: 100, // Default max viewers
         settings: {
           allowChat: formData.allowChat,
           allowRecording: formData.allowRecording,
