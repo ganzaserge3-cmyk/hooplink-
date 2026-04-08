@@ -572,7 +572,7 @@ export default function DashboardPage() {
                       <Play className="ml-2 h-4 w-4" />
                     </Link>
                   </Button>
-                  {user && (
+                  {profile && (
                     <Button className="flex-1" variant="outline" asChild>
                       <Link href="/live-stream/create">
                         Go Live
