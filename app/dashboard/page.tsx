@@ -77,6 +77,15 @@ const shortcutCatalog: ShortcutItem[] = [
   { id: "live-streams", label: "Live Streams" },
 ];
 
+const widgetCatalog = [
+  { id: "checklist", label: "Profile Checklist" },
+  { id: "shortcuts", label: "Quick Shortcuts" },
+  { id: "suggestions", label: "Follow Suggestions" },
+  { id: "gamification", label: "Gamification" },
+  { id: "live-streams", label: "Live Streams" },
+  { id: "recent", label: "Recent Pages" },
+];
+
 const pageLabels: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/upload": "Upload",
