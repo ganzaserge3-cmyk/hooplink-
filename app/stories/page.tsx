@@ -108,6 +108,7 @@ function StoriesPageContent() {
   const [files, setFiles] = useState<File[]>([]);
   const [caption, setCaption] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [replyText, setReplyText] = useState("");
@@ -309,6 +310,7 @@ function StoriesPageContent() {
     }
 
     setSaving(true);
+    setError(null);
     try {
       await createStories({
         files,
@@ -361,6 +363,9 @@ function StoriesPageContent() {
       setSportsMeta({ format: "standard" });
       setTextCard(buildStoryCardSuggestion("general"));
       await refreshStories();
+    } catch (error) {
+      console.error("Failed to create story:", error);
+      setError(error instanceof Error ? error.message : "Unknown error");
     } finally {
       setSaving(false);
     }
@@ -454,13 +459,33 @@ function StoriesPageContent() {
             </CardHeader>
             <CardContent>
               <form className="space-y-4" onSubmit={handleSubmit}>
+                {error && (
+                  <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                    {error}
+                  </div>
+                )}
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Media slides</label>
                   <input
                     type="file"
                     accept="image/*,video/*"
                     multiple
-                    onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
+                    onChange={(event) => {
+                      const selectedFiles = Array.from(event.target.files ?? []);
+                      const maxSize = 50 * 1024 * 1024; // 50MB
+                      const validFiles = selectedFiles.filter((file) => {
+                        if (file.size > maxSize) {
+                          alert(`File "${file.name}" is too large. Maximum size is 50MB.`);
+                          return false;
+                        }
+                        if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+                          alert(`File "${file.name}" is not a valid image or video file.`);
+                          return false;
+                        }
+                        return true;
+                      });
+                      setFiles(validFiles);
+                    }}
                   />
                   <p className="text-xs text-muted-foreground">
                     {files.length ? `${files.length} file(s) selected for one story session.` : "Upload multiple files to create several slides at once."}
