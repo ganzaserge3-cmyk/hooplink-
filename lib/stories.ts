@@ -651,9 +651,21 @@ export async function createStories(input: CreateStoriesInput) {
   }
 
   if (files.length > 0) {
+    const totalFiles = files.length;
+    let completedUploads = 0;
+
     await Promise.all(
-      files.map(async (file) => {
-        const uploadedStory = await uploadToCloudinary(file, `hooplink/stories/${auth.currentUser!.uid}`);
+      files.map(async (file, index) => {
+        const uploadedStory = await uploadToCloudinary(
+          file,
+          `hooplink/stories/${auth.currentUser!.uid}`,
+          (progress) => {
+            // Optional: emit progress for each file
+            console.log(`Uploading ${file.name}: ${progress.toFixed(1)}%`);
+          }
+        );
+        completedUploads++;
+        console.log(`Uploaded ${completedUploads}/${totalFiles} files`);
         await createPayload(uploadedStory.url, file.type.startsWith("video/") ? "video" : "image");
       })
     );
