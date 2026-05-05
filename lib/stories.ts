@@ -732,7 +732,7 @@ export function subscribeToActiveStories(callback: (stories: StoryItem[]) => voi
     async (snapshot: any) => {
       const context = await getCurrentStoryContext();
       const activeStories = snapshot.docs
-        .map((docSnapshot) => mapStory(docSnapshot.id, docSnapshot.data() as Record<string, unknown>))
+        .map((docSnapshot: any) => mapStory(docSnapshot.id, docSnapshot.data() as Record<string, unknown>))
         .filter((story) => (story.expiresAt?.seconds ?? 0) > nowSeconds)
         .filter((story) => (currentUserId ? canViewStory(story, currentUserId, context) : story.audience === "everyone"));
 
