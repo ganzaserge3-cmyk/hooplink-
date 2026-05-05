@@ -729,7 +729,7 @@ export function subscribeToActiveStories(callback: (stories: StoryItem[]) => voi
 
   const unsubscribe = onSnapshot(
     query(collection(db, "stories"), orderBy("createdAt", "desc"), limit(100)),
-    async (snapshot) => {
+    async (snapshot: import("firebase/firestore").QuerySnapshot) => {
       const context = await getCurrentStoryContext();
       const activeStories = snapshot.docs
         .map((docSnapshot) => mapStory(docSnapshot.id, docSnapshot.data() as Record<string, unknown>))
