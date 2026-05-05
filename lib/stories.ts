@@ -731,10 +731,9 @@ export function subscribeToActiveStories(callback: (stories: StoryItem[]) => voi
     query(collection(db, "stories"), orderBy("createdAt", "desc"), limit(100)),
     async (snapshot: any) => {
       const context = await getCurrentStoryContext();
-      const activeStories = snapshot.docs
-        .map((docSnapshot: any) => mapStory(docSnapshot.id, docSnapshot.data() as Record<string, unknown>))
-        .filter((story) => (story.expiresAt?.seconds ?? 0) > nowSeconds)
-        .filter((story) => (currentUserId ? canViewStory(story, currentUserId, context) : story.audience === "everyone"));
+      const activeStories: StoryItem[] = (snapshot.docs as any[]).map((docSnapshot: any) => mapStory(docSnapshot.id, docSnapshot.data() as Record<string, unknown>))
+        .filter((story: StoryItem) => (story.expiresAt?.seconds ?? 0) > nowSeconds)
+        .filter((story: StoryItem) => (currentUserId ? canViewStory(story, currentUserId, context) : story.audience === "everyone"));
 
       const sorted = activeStories.sort((left, right) => {
         const leftOwn = left.userId === currentUserId ? 1 : 0;
