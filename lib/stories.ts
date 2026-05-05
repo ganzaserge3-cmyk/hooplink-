@@ -729,7 +729,6 @@ export function subscribeToActiveStories(callback: (stories: StoryItem[]) => voi
 
   const unsubscribe = onSnapshot(
     query(collection(db, "stories"), orderBy("createdAt", "desc"), limit(100)),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async (snapshot: any) => {
       const context = await getCurrentStoryContext();
       const activeStories = snapshot.docs
