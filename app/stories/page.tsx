@@ -18,7 +18,6 @@ import {
   createStoryHighlightCollection,
   deleteStory,
   formatStoryTime,
-  getActiveStories,
   getCloseFriendIds,
   getMutedStoryUserIds,
   getStoryArchive,
@@ -30,6 +29,7 @@ import {
   respondToStorySticker,
   saveStoryToHighlightCollection,
   sendStoryReply,
+  subscribeToActiveStories,
   toggleMuteStoryCreator,
   toggleStoryReaction,
   updateCloseFriendIds,
@@ -109,6 +109,7 @@ function StoriesPageContent() {
   const [caption, setCaption] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [replyText, setReplyText] = useState("");
@@ -138,14 +139,12 @@ function StoriesPageContent() {
   const [textCard, setTextCard] = useState<StoryTextCard>(buildStoryCardSuggestion("general"));
 
   const refreshStories = async () => {
-    const [nextStories, nextArchive, nextHighlights, nextCloseFriends, nextMuted] = await Promise.all([
-      getActiveStories(),
+    const [nextArchive, nextHighlights, nextCloseFriends, nextMuted] = await Promise.all([
       getStoryArchive(),
       getStoryHighlightCollections(),
       getCloseFriendIds(),
       getMutedStoryUserIds(),
     ]);
-    setStories(nextStories);
     setArchive(nextArchive);
     setHighlightCollections(nextHighlights);
     setCloseFriendIds(nextCloseFriends);
@@ -155,8 +154,12 @@ function StoriesPageContent() {
   useEffect(() => {
     void refreshStories();
     void searchProfiles("").then(setProfiles);
-    const unsubscribe = subscribeToTeams((nextTeams) => setTeams(nextTeams));
-    return unsubscribe;
+    const unsubscribeTeams = subscribeToTeams((nextTeams) => setTeams(nextTeams));
+    const unsubscribeStories = subscribeToActiveStories((nextStories) => setStories(nextStories));
+    return () => {
+      unsubscribeTeams();
+      unsubscribeStories();
+    };
   }, []);
 
   useEffect(() => {
@@ -311,6 +314,7 @@ function StoriesPageContent() {
 
     setSaving(true);
     setError(null);
+    setUploadProgress(files.length > 0 ? `Uploading ${files.length} file(s)...` : null);
     try {
       await createStories({
         files,
@@ -341,6 +345,7 @@ function StoriesPageContent() {
         },
       });
 
+      setUploadProgress(null);
       setFiles([]);
       setCaption("");
       setShowTextCard(false);
@@ -462,6 +467,11 @@ function StoriesPageContent() {
                 {error && (
                   <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
                     {error}
+                  </div>
+                )}
+                {uploadProgress && (
+                  <div className="rounded-md bg-primary/10 p-3 text-sm text-primary">
+                    {uploadProgress}
                   </div>
                 )}
                 <div className="space-y-2">
@@ -1600,4 +1610,4 @@ export default function StoriesPage() {
       </Suspense>
     </AuthProvider>
   );
-}
+} 

@@ -9,10 +9,12 @@ import {
   getDocs,
   increment,
   limit,
+  onSnapshot,
   orderBy,
   query,
   serverTimestamp,
   setDoc,
+  Timestamp,
   updateDoc,
   where,
 } from "firebase/firestore";
@@ -572,8 +574,8 @@ export async function createStories(input: CreateStoriesInput) {
     input.audience === "close_friends" ? closeFriendIds : baseAudienceUserIds;
 
   const createPayload = async (mediaUrl: string, mediaType: StoryItem["mediaType"]) => {
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const docRef = await addDoc(collection(db, "stories"), {
+    const expiresAt = Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000));
+    const docRef = await addDoc(collection(db!, "stories"), {
       userId: auth.currentUser!.uid,
       mediaUrl,
       mediaType,
@@ -714,6 +716,45 @@ export async function getActiveStories() {
 
     return (right.createdAt?.seconds ?? 0) - (left.createdAt?.seconds ?? 0);
   });
+}
+
+export function subscribeToActiveStories(callback: (stories: StoryItem[]) => void) {
+  if (!db) {
+    callback([]);
+    return () => undefined;
+  }
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const currentUserId = auth?.currentUser?.uid ?? "";
+
+  const unsubscribe = onSnapshot(
+    query(collection(db, "stories"), orderBy("createdAt", "desc"), limit(100)),
+    async (snapshot) => {
+      const context = await getCurrentStoryContext();
+      const activeStories = snapshot.docs
+        .map((docSnapshot) => mapStory(docSnapshot.id, docSnapshot.data() as Record<string, unknown>))
+        .filter((story) => (story.expiresAt?.seconds ?? 0) > nowSeconds)
+        .filter((story) => (currentUserId ? canViewStory(story, currentUserId, context) : story.audience === "everyone"));
+
+      const sorted = activeStories.sort((left, right) => {
+        const leftOwn = left.userId === currentUserId ? 1 : 0;
+        const rightOwn = right.userId === currentUserId ? 1 : 0;
+        if (leftOwn !== rightOwn) return rightOwn - leftOwn;
+        const leftFollowing = context.following.includes(left.userId) ? 1 : 0;
+        const rightFollowing = context.following.includes(right.userId) ? 1 : 0;
+        if (leftFollowing !== rightFollowing) return rightFollowing - leftFollowing;
+        const leftSeen = left.seenBy?.includes(currentUserId) ? 1 : 0;
+        const rightSeen = right.seenBy?.includes(currentUserId) ? 1 : 0;
+        if (leftSeen !== rightSeen) return leftSeen - rightSeen;
+        return (right.createdAt?.seconds ?? 0) - (left.createdAt?.seconds ?? 0);
+      });
+
+      callback(sorted);
+    },
+    () => callback([])
+  );
+
+  return unsubscribe;
 }
 
 export async function getStoryArchive() {
