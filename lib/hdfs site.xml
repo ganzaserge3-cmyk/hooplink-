@@ -19,7 +19,7 @@
 <configuration>
 <property>
 <name>dfs.replication</name>
-<value>1</value>
+<value>1</value>vv
 </property>
 
 <property>

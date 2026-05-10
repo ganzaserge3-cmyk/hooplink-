@@ -43,7 +43,6 @@ export const publicRoutes = [
   "/recruiting",
   "/search",
   "/spotlights",
-  "/teams",
   "/training",
   "/blog",
 ] as const;

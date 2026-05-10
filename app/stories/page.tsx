@@ -885,9 +885,9 @@ function StoriesPageContent() {
                         type="button"
                         size="sm"
                         variant="outline"
-                        onClick={() => setStoryForm((current) => ({ ...current, ctaLabel: "View team", ctaUrl: `/teams/${current.teamId}` }))}
+                        disabled
                       >
-                        Selected team
+                        Team CTA unavailable
                       </Button>
                     ) : null}
                   </div>

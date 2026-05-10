@@ -23,7 +23,6 @@ export default function TeamBrandPage({ params }: { params: { teamId: string } }
         <p className="mt-3 text-lg text-muted-foreground">{[data.team.sport, data.team.location].filter(Boolean).join(" • ")}</p>
         <p className="mt-4 max-w-2xl">{data.team.bio}</p>
         <div className="mt-6 flex gap-3">
-          <Link href={`/teams/${params.teamId}`} className="rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground">Team Page</Link>
           <Link href={`/brackets?team=${params.teamId}`} className="rounded-xl border px-5 py-3 font-semibold">Brackets</Link>
         </div>
       </section>

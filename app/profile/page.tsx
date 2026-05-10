@@ -287,7 +287,6 @@ function ProfilePageContent() {
     { href: "/recruiting-ready", label: "Recruiting", icon: GraduationCap },
     { href: "/mentorship", label: "Mentorship", icon: Users },
     { href: "/virtual-tryouts", label: "Tryouts", icon: Target },
-    { href: "/teams", label: "Teams", icon: Users },
     { href: "/ai-coach", label: "AI Coach", icon: Brain },
   ];
 

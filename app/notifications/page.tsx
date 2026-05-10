@@ -20,6 +20,7 @@ import {
   snoozeNotification,
   subscribeToNotifications,
 } from "@/lib/notifications";
+import { toggleFollowUser } from "@/lib/user-profile";
 import { formatTimeAgo } from "@/lib/posts";
 import {
   getCurrentUserSettings,
@@ -310,6 +311,16 @@ function NotificationsPageContent() {
     }
   };
 
+  const handleFollowBack = async (actionKey: string, group: NotificationGroup) => {
+    setBusyAction(actionKey);
+    try {
+      await toggleFollowUser(group.notifications[0].actorId, false);
+      await Promise.all(group.notifications.map((notification) => markNotificationRead(notification.id)));
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
   if (!user) {
     return null;
   }
@@ -405,14 +416,24 @@ function NotificationsPageContent() {
                             </div>
 
                             <div className="flex flex-wrap gap-2">
-                              <Link
-                                href={group.actionUrl}
-                                onClick={() =>
-                                  void applyToGroup(`open-${group.key}`, group, markNotificationRead)
-                                }
-                              >
-                                <Button size="sm">{group.actionLabel}</Button>
-                              </Link>
+                              {group.types.includes("follow") && group.actionLabel === "Follow back" ? (
+                                <Button
+                                  size="sm"
+                                  onClick={() => void handleFollowBack(`follow-${group.key}`, group)}
+                                  disabled={busyAction === `follow-${group.key}`}
+                                >
+                                  {group.actionLabel}
+                                </Button>
+                              ) : (
+                                <Link
+                                  href={group.actionUrl}
+                                  onClick={() =>
+                                    void applyToGroup(`open-${group.key}`, group, markNotificationRead)
+                                  }
+                                >
+                                  <Button size="sm">{group.actionLabel}</Button>
+                                </Link>
+                              )}
                               {group.unread ? (
                                 <Button
                                   size="sm"

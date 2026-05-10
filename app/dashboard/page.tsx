@@ -65,7 +65,6 @@ function isShortcutWithHref(item: ShortcutItem): item is { href: string; label: 
 const shortcutCatalog: ShortcutItem[] = [
   { href: "/upload", label: "Upload highlight", description: "Post your first clip or update.", icon: Upload },
   { href: "/search", label: "Search people", description: "Find athletes, coaches, and scouts.", icon: Search },
-  { href: "/teams", label: "Explore teams", description: "Join a roster or build your network.", icon: Users },
   { href: "/messages", label: "Open messages", description: "Reply faster and keep momentum going.", icon: MessageCircle },
   { href: "/feed", label: "Open feed", description: "See what your community is posting.", icon: Compass },
   { href: "/recruiting-ready", label: "Recruiting hub", description: "Build a more discoverable profile.", icon: Trophy },
@@ -91,7 +90,6 @@ const pageLabels: Record<string, string> = {
   "/upload": "Upload",
   "/feed": "Feed",
   "/search": "Search",
-  "/teams": "Teams",
   "/messages": "Messages",
   "/recruiting-ready": "Recruiting Hub",
   "/training": "Training",
@@ -281,48 +279,31 @@ export default function DashboardPage() {
         <section className="grid gap-6 lg:grid-cols-[1.2fr,0.8fr]">
           <Card className="border-primary/10 bg-gradient-to-br from-primary/10 via-background to-background">
             <CardHeader>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                Personalized dashboard
-              </p>
               <CardTitle className="text-3xl">
                 {loading ? "Loading your setup..." : `Welcome back, ${profile?.displayName || "teammate"}`}
               </CardTitle>
-              <CardDescription className="max-w-2xl text-base">
-                {primaryGoal
-                  ? goalCopy[primaryGoal].description
-                  : "Your setup is designed to help you move faster through the most important parts of HoopLink."}
-              </CardDescription>
+              {primaryGoal && (
+                <CardDescription className="max-w-2xl text-base">
+                  {goalCopy[primaryGoal].description}
+                </CardDescription>
+              )}
               <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                <span className="rounded-full bg-background px-3 py-1">{roleHomeFeedCopy}</span>
-                {profile?.setupPreferences?.accessibilityMode ? (
-                  <span className="rounded-full bg-background px-3 py-1">
-                    {profile.setupPreferences.accessibilityMode.replace(/_/g, " ")}
-                  </span>
-                ) : null}
-                {focusMode ? <span className="rounded-full bg-background px-3 py-1">Focus mode on</span> : null}
+                <span className="px-3 py-1 border rounded-full bg-background/50">{roleHomeFeedCopy}</span>
+                {focusMode && <span className="px-3 py-1 border border-primary/30 rounded-full bg-primary/5 text-primary">Focus mode active</span>}
               </div>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-3">
-              <Button asChild>
+              <Button size="lg" asChild>
                 <Link href="/upload">
-                  Upload now
+                  Post Update
                   <Upload className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
-              <Button variant="outline" asChild>
+              <Button size="lg" variant="outline" asChild>
                 <Link href="/search">
                   Search the network
                   <Search className="ml-2 h-4 w-4" />
                 </Link>
-              </Button>
-              <Button variant="ghost" asChild>
-                <Link href="/feed">
-                  Open feed
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-              <Button variant="outline" onClick={() => void savePrefs({ focusMode: !focusMode })}>
-                {focusMode ? "Turn off focus mode" : "Turn on focus mode"}
               </Button>
             </CardContent>
           </Card>

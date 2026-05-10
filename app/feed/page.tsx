@@ -6,9 +6,9 @@ import { Search } from "lucide-react";
 
 import { AuthProvider, useAuthContext } from "@/components/AuthProvider";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { PostCard } from "@/components/PostCard";
-import { TrendingTopicsWidget } from "@/components/TrendingTopicsWidget";
-import { TopicFollowWidget } from "@/components/TopicFollowWidget";
+import { PostCard } from "@/components/feed/PostCard";
+import { TrendingTopicsWidget } from "@/components/feed/TrendingTopicsWidget";
+import { TopicFollowWidget } from "@/components/feed/TopicFollowWidget";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getSavedCollections, type SavedCollection } from "@/lib/collections";
@@ -17,8 +17,8 @@ import {
   subscribeToFeed,
 } from "@/lib/posts";
 import { formatStoryTime } from "@/lib/stories";
-import { useFeedFilters } from "@/hooks/useFeedFilters";
-import { useStories } from "@/hooks/useStories";
+import { useFeedFilters } from "@/hooks/feed/useFeedFilters";
+import { useStories } from "@/hooks/feed/useStories";
 import { useTopics } from "@/hooks/useTopics";
 import { useUserProfile } from "@/hooks/useUserProfile";
 
@@ -53,7 +53,7 @@ function FeedPageContent() {
     hideTopic,
     hidePostType,
     resetFilters,
-  } = useFeedFilters(posts, user?.uid || "", currentUserLocation, currentUserTeam, followingIds);
+  } = useFeedFilters(posts, user?.uid ?? "", currentUserLocation, currentUserTeam, followingIds);
 
   const {
     followedTopics,
@@ -271,7 +271,7 @@ function FeedPageContent() {
                   No active stories yet.
                 </div>
               ) : (
-                storyHighlights.map((story) => (
+                (storyHighlights || []).map((story) => (
                   <Link key={story.id} href={`/stories?story=${story.id}`} className="flex min-w-[76px] flex-col items-center gap-2">
                     <div className="rounded-full bg-gradient-to-br from-fuchsia-500 via-rose-500 to-amber-400 p-[2px] shadow-sm">
                       <div className="rounded-full bg-background p-[2px]">

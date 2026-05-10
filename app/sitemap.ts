@@ -14,7 +14,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/marketplace": 0.8,
     "/recruiting": 0.8,
     "/search": 0.7,
-    "/teams": 0.8,
     "/spotlights": 0.8,
     "/fan-hub": 0.8,
   };

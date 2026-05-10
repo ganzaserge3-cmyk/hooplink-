@@ -184,7 +184,7 @@ function CompleteProfilePageContent() {
         onboardingCompleted: true,
         completedSteps: ["role", "profile", "dashboard"],
         lastCompletedStep: "dashboard",
-        pinnedShortcuts: ["/dashboard", "/upload", "/search", "/teams"],
+        pinnedShortcuts: ["/dashboard", "/upload", "/search"],
         setupPreferences: {
           primarySport: formData.sport,
         },
