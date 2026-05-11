@@ -1,1 +1,1 @@
-﻿export { default } from "@/components/VirtualTryouts";
+﻿export { default } from "@/app/feed/page";

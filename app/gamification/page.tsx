@@ -1,1 +1,1 @@
-﻿export { default } from "@/components/GamificationDashboard";
+﻿export { default } from "@/app/feed/page";
