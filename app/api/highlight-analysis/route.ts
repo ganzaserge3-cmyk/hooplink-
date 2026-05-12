@@ -33,34 +33,29 @@ export async function POST(request: Request) {
   }
 
   try {
-    const response = await fetch("https://api.openai.com/v1/responses", {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || "gpt-5.2",
-        input: [
+        model: process.env.OPENAI_MODEL || "gpt-4o",
+        messages: [
           {
             role: "system",
-            content: [{ type: "input_text", text: systemPrompt }],
+            content: systemPrompt,
           },
           {
             role: "user",
-            content: [
-              {
-                type: "input_text",
-                text: `Sport: ${sport}\nFormat: ${contentType}\nCaption: ${caption || "None"}\nAuto-caption: ${autoCaption || "None"}\n\nReturn 2-3 sentences of highlight analysis.`,
-              },
-            ],
+            content: `Sport: ${sport}\nFormat: ${contentType}\nCaption: ${caption || "None"}\nAuto-caption: ${autoCaption || "None"}\n\nReturn 2-3 sentences of highlight analysis.`,
           },
         ],
       }),
     });
 
     const data = (await response.json().catch(() => ({}))) as {
-      output_text?: string;
+      choices?: Array<{ message?: { content?: string } }>;
       error?: { message?: string };
     };
 
@@ -73,7 +68,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       analysis:
-        data.output_text ||
+        data.choices?.[0]?.message?.content ||
         `Strong ${sport} highlight. Add one line of context about the play and one line on what it shows about your game.`,
     });
   } catch {
