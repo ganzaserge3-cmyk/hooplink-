@@ -1,3 +1,1 @@
-import FeedPage from "@/app/feed/page";
-
-export default FeedPage;
+export { default } from "@/app/feed/page";

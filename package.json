@@ -14,6 +14,10 @@
     "cap:open:android": "npx cap open android",
     "android:bundle:release": "npm run cap:sync:android && cd android && gradlew.bat bundleRelease"
   },
+  "overrides": {
+    "@smithy/types": "4.13.1",
+    "@aws-sdk/types": "3.973.6"
+  },
   "dependencies": {
     "@capacitor/android": "^8.3.0",
     "@capacitor/cli": "^8.3.0",
