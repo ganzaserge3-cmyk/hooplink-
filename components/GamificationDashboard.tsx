@@ -181,6 +181,8 @@ export function GamificationDashboard({ userId }: GamificationDashboardProps) {
   );
 }
 
+export default GamificationDashboard;
+
 interface AchievementsListProps {
   achievements: Achievement[];
   totalPoints: number;

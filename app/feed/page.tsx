@@ -7,8 +7,8 @@ import { Search } from "lucide-react";
 import { AuthProvider, useAuthContext } from "@/components/AuthProvider";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { PostCard } from "@/components/feed/PostCard";
-import { TrendingTopicsWidget } from "@/components/feed/TrendingTopicsWidget";
-import { TopicFollowWidget } from "@/components/feed/TopicFollowWidget";
+import { TopicFollowWidget } from "@/components/TopicFollowWidget";
+import { TrendingTopicsWidget } from "@/components/TrendingTopicsWidget";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getSavedCollections, type SavedCollection } from "@/lib/collections";
@@ -17,8 +17,8 @@ import {
   subscribeToFeed,
 } from "@/lib/posts";
 import { formatStoryTime } from "@/lib/stories";
-import { useFeedFilters } from "@/hooks/feed/useFeedFilters";
-import { useStories } from "@/hooks/feed/useStories";
+import { useFeedFilters } from "@/hooks/useFeedFilters";
+import { useStories } from "@/hooks/useStories";
 import { useTopics } from "@/hooks/useTopics";
 import { useUserProfile } from "@/hooks/useUserProfile";
 

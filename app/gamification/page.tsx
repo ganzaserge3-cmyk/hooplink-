@@ -1,1 +1,5 @@
-﻿export { default } from "@/components/GamificationDashboard";
+import GamificationDashboard from "@/components/GamificationDashboard";
+
+export default function GamificationPage() {
+  return <GamificationDashboard />;
+}
