@@ -1,13 +1,14 @@
 "use client";
 
 import { ChangeEvent, FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, CalendarPlus, ImagePlus, Pencil, Search, SendHorizontal, Trash2, X } from "lucide-react";
+import { ArrowLeft, CalendarPlus, ImagePlus, Pencil, Search, SendHorizontal, Trash2, UserPlus, X } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 import { useAuthContext } from "@/components/AuthProvider";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   createOrGetConversation,
   deleteConversationMessage,
@@ -23,6 +24,7 @@ import {
   type ConversationReplyPreview,
   type ConversationSummary,
 } from "@/lib/messaging";
+import { searchProfiles, type SearchProfile } from "@/lib/user-profile";
 import { formatTimeAgo } from "@/lib/posts";
 
 const REACTIONS = ["??", "??", "??"];
@@ -48,11 +50,36 @@ function MessagesPageContent() {
   const [trainingTime, setTrainingTime] = useState("");
   const [trainingLocation, setTrainingLocation] = useState("");
   const [trainingNotes, setTrainingNotes] = useState("");
+  const [showNewMessage, setShowNewMessage] = useState(false);
+  const [newMessageSearch, setNewMessageSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchProfile[]>([]);
+  const [searchingUsers, setSearchingUsers] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     return subscribeToConversations(user.uid, setConversations);
   }, [user]);
+
+  useEffect(() => {
+    if (!showNewMessage || !newMessageSearch.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    let cancelled = false;
+    setSearchingUsers(true);
+
+    void searchProfiles(newMessageSearch).then((results) => {
+      if (!cancelled) {
+        setSearchResults(results.filter((profile: SearchProfile) => profile.uid !== user?.uid).slice(0, 10));
+        setSearchingUsers(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showNewMessage, newMessageSearch, user?.uid]);
 
   useEffect(() => {
     if (!user || !starterUser || starterUser === user.uid) return;
@@ -97,6 +124,14 @@ function MessagesPageContent() {
   }, [conversations, currentUserId, search]);
 
   if (!user) return null;
+
+  const handleStartConversation = async (otherUserId: string) => {
+    setShowNewMessage(false);
+    setNewMessageSearch("");
+    setSearchResults([]);
+    const conversationId = await createOrGetConversation(otherUserId);
+    setActiveId(conversationId);
+  };
 
   const handleSend = async (event?: FormEvent) => {
     event?.preventDefault();
@@ -172,8 +207,8 @@ function MessagesPageContent() {
               <h1 className="text-2xl font-bold leading-tight">Messages</h1>
               <p className="text-sm text-muted-foreground">Direct messages with your HoopLink network</p>
             </div>
-            <Button size="sm" asChild>
-              <Link href="/search">New DM</Link>
+            <Button size="sm" onClick={() => setShowNewMessage(true)}>
+              <UserPlus className="mr-2 h-4 w-4" />New Message
             </Button>
           </div>
 
@@ -192,7 +227,7 @@ function MessagesPageContent() {
           <div className="flex-1 overflow-y-auto">
             {visibleConversations.length === 0 ? (
               <div className="p-8 text-center text-base text-muted-foreground">
-                No conversations yet. <Link href="/search" className="font-semibold text-primary underline">Find people</Link>
+                No conversations yet. Click <strong>New Message</strong> to start chatting.
               </div>
             ) : visibleConversations.map((conversation) => {
               const other = conversation.participantProfiles.find((profile) => profile.uid !== currentUserId) ?? conversation.participantProfiles[0];
@@ -429,12 +464,66 @@ function MessagesPageContent() {
             <div className="flex flex-1 items-center justify-center text-center">
               <div>
                 <p className="text-2xl font-semibold">Select a conversation</p>
-                <p className="mt-2 text-base text-muted-foreground">Or <Link href="/search" className="font-semibold text-primary underline">search for someone</Link> to message directly.</p>
+                <p className="mt-2 text-base text-muted-foreground">Or click <Button variant="link" className="h-auto p-0 text-primary" onClick={() => setShowNewMessage(true)}>New Message</Button> to start chatting.</p>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {showNewMessage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowNewMessage(false)}>
+          <div className="w-full max-w-md rounded-2xl border bg-background p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">New Message</h2>
+              <button type="button" onClick={() => setShowNewMessage(false)} className="rounded-full p-1 hover:bg-muted" aria-label="Close">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
+              <Input
+                value={newMessageSearch}
+                onChange={(event) => setNewMessageSearch(event.target.value)}
+                placeholder="Search by name or username"
+                className="h-12 pl-11 pr-4"
+                autoFocus
+              />
+            </div>
+            <div className="max-h-96 overflow-y-auto space-y-2">
+              {searchingUsers ? (
+                <div className="flex justify-center py-8">
+                  <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+                </div>
+              ) : searchResults.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  {newMessageSearch.trim() ? "No users found" : "Search for someone to message"}
+                </p>
+              ) : searchResults.map((profile) => (
+                <button
+                  key={profile.uid}
+                  type="button"
+                  onClick={() => void handleStartConversation(profile.uid)}
+                  className="flex w-full items-center gap-3 rounded-xl border p-3 text-left transition hover:bg-muted/60"
+                >
+                  <img
+                    src={profile.photoURL || "https://placehold.co/48x48?text=U"}
+                    alt={profile.displayName}
+                    className="h-12 w-12 rounded-full object-cover"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">{profile.displayName}</p>
+                    <p className="truncate text-sm text-muted-foreground">
+                      {profile.username ? `@${profile.username}` : ""}
+                      {profile.role?.sport ? ` • ${profile.role.sport}` : ""}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </ProtectedRoute>
   );
 }
