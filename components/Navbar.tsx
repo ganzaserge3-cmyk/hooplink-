@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Home, LogIn, LogOut, Menu, MessageCircle, Search, Settings, UserPlus } from "lucide-react";
+import { Bell, Home, LogIn, LogOut, Menu, MessageCircle, Search, Settings, Sun, Moon, UserPlus } from "lucide-react";
 import { signOut } from "firebase/auth";
 
 import { auth } from "@/lib/firebase";
@@ -52,6 +52,20 @@ export default function Navbar() {
 
   const unreadCount = user ? notifications.filter((n) => !n.readBy?.includes(user.uid)).length : 0;
   const unreadMessages = user ? conversations.filter((c) => c.unreadBy.includes(user.uid)).length : 0;
+  const [isDark, setIsDark] = useState(true);
+
+  useEffect(() => {
+    const stored = typeof window !== "undefined" ? window.localStorage.getItem("hooplink_theme") : null;
+    setIsDark(stored !== "light");
+  }, []);
+
+  const toggleTheme = () => {
+    const next = !isDark;
+    setIsDark(next);
+    document.documentElement.classList.toggle("dark", next);
+    document.documentElement.classList.toggle("light", !next);
+    window.localStorage.setItem("hooplink_theme", next ? "dark" : "light");
+  };
 
   if (pathname === "/role-selection" || pathname === "/complete-profile") return null;
 
@@ -90,6 +104,9 @@ export default function Navbar() {
                 <Button size="sm" asChild><Link href="/upload">+ Post</Link></Button>
                 <Button variant="ghost" size="sm" asChild><Link href="/profile">Profile</Link></Button>
                 <Button variant="ghost" size="sm" asChild><Link href="/settings"><Settings className="h-4 w-4" /></Link></Button>
+                <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
+                  {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                </Button>
                 <Button variant="outline" size="sm" onClick={() => auth && void signOut(auth)}>
                   <LogOut className="mr-2 h-4 w-4" />Logout
                 </Button>
@@ -139,6 +156,10 @@ export default function Navbar() {
                       <Button variant="ghost" size="sm" asChild className="w-full justify-start">
                         <Link href="/settings"><Settings className="mr-2 h-4 w-4" />Settings</Link>
                       </Button>
+                      <Button variant="ghost" size="sm" className="w-full justify-start" onClick={toggleTheme}>
+                        {isDark ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
+                        {isDark ? "Light mode" : "Dark mode"}
+                      </Button>
                       <Button variant="outline" size="sm" className="w-full" onClick={() => auth && void signOut(auth)}>
                         <LogOut className="mr-2 h-4 w-4" />Logout
                       </Button>
@@ -149,6 +170,9 @@ export default function Navbar() {
             </>
           ) : (
             <>
+              <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
+                {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Button>
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/login"><LogIn className="mr-2 h-4 w-4" />Login</Link>
               </Button>
