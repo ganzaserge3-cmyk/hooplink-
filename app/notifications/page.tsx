@@ -510,7 +510,7 @@ function NotificationsPageContent() {
                                 {group.notifications
                                   .slice(0, 3)
                                   .map((notification) => notification.message)
-                                  .join(" GÇó ")}
+                                  .join(" â€¢ ")}
                               </div>
                             ) : null}
                           </div>
