@@ -25,6 +25,7 @@ export default async function ResumePage({ params }: { params: { uid: string } }
             </p>
             <p className="mt-2 text-sm text-muted-foreground">@{String(profile.username ?? params.uid.slice(0, 8))}</p>
           </div>
+          <Link href={`/messages?user=${params.uid}`} className="rounded-full border px-4 py-2 text-sm hover:bg-muted/40">Message</Link>
           <Link href={`/media-kit/${params.uid}`} className="rounded-full border px-4 py-2 text-sm hover:bg-muted/40">Open Media Kit</Link>
         </div>
         <p className="mt-4">{String(role.bio ?? "No bio provided.")}</p>

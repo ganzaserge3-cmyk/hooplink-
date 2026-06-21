@@ -87,7 +87,8 @@ export default function AthleteLandingPage({ params }: { params: { uid: string }
         <p className="mt-4 max-w-2xl">{profile?.role?.bio || "Discover highlights, stats, merch drops, newsletters, and recruiting updates."}</p>
         {profile?.growth?.storefrontHeadline ? <p className="mt-4 text-primary font-medium">{profile.growth.storefrontHeadline}</p> : null}
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link href={`/profile/${params.uid}`} className="rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground">Open Profile</Link>
+          <Link href={`/messages?user=${params.uid}`} className="rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground">Message</Link>
+          <Link href={`/profile/${params.uid}`} className="rounded-xl border px-5 py-3 font-semibold">Open Profile</Link>
           <Link href={`/newsletter/${params.uid}`} className="rounded-xl border px-5 py-3 font-semibold">Newsletter</Link>
           <Link href={`/blog/${params.uid}`} className="rounded-xl border px-5 py-3 font-semibold">Blog</Link>
         </div>

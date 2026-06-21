@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { getPublicResumeData, getSchoolFitScores } from "@/lib/recruiting-readiness";
 
 export default async function MediaKitPage({ params }: { params: { uid: string } }) {
@@ -22,6 +24,10 @@ export default async function MediaKitPage({ params }: { params: { uid: string }
           {[String(role.sport ?? ""), String(role.position ?? ""), String(role.team ?? "")].filter(Boolean).join(" · ")}
         </p>
         <p className="mt-4 max-w-2xl text-sm text-white/75">{String(role.bio ?? "No bio available.")}</p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link href={`/messages?user=${params.uid}`} className="rounded-xl bg-white px-5 py-3 font-semibold text-slate-900">Message</Link>
+          <Link href={`/resume/${params.uid}`} className="rounded-xl border border-white/40 px-5 py-3 font-semibold text-white">View Resume</Link>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
