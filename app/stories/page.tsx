@@ -2,7 +2,7 @@
 
 import { FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Pause, Play, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pause, Play, Trash2, Heart, Send } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
 import { AuthProvider, useAuthContext } from "@/components/AuthProvider";
@@ -133,6 +133,7 @@ function StoriesPageContent() {
     stickerChoices: "",
     stickerDeadlineLabel: "",
   });
+  const [quickCreateMode, setQuickCreateMode] = useState(false);
   const [sportsMeta, setSportsMeta] = useState<StorySportsMeta>({
     format: "standard",
   });
@@ -215,8 +216,8 @@ function StoriesPageContent() {
         !ctaSearch.trim()
           ? true
           : `${profile.displayName} ${profile.username || ""} ${profile.role?.team || ""}`
-              .toLowerCase()
-              .includes(ctaSearch.trim().toLowerCase())
+            .toLowerCase()
+            .includes(ctaSearch.trim().toLowerCase())
       ),
     [ctaSearch, profiles]
   );
@@ -332,11 +333,11 @@ function StoriesPageContent() {
             : null,
         sticker: storyForm.stickerPrompt.trim()
           ? {
-              type: storyForm.stickerType,
-              prompt: storyForm.stickerPrompt.trim(),
-              choices: storyForm.stickerChoices.split(",").map((value) => value.trim()).filter(Boolean),
-              deadlineLabel: storyForm.stickerDeadlineLabel.trim() || undefined,
-            }
+            type: storyForm.stickerType,
+            prompt: storyForm.stickerPrompt.trim(),
+            choices: storyForm.stickerChoices.split(",").map((value) => value.trim()).filter(Boolean),
+            deadlineLabel: storyForm.stickerDeadlineLabel.trim() || undefined,
+          }
           : null,
         textCard: showTextCard ? textCard : null,
         sportsMeta: {
@@ -394,10 +395,13 @@ function StoriesPageContent() {
           <div>
             <h1 className="text-3xl font-bold">Stories</h1>
             <p className="text-muted-foreground">
-              Stories now support private audiences, highlights, archive, reactions, stickers, analytics, and team workflows.
+              Share moments with photos, videos, or text cards. Add stickers, polls, and CTAs.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button onClick={() => setQuickCreateMode((current) => !current)}>
+              {quickCreateMode ? "Advanced mode" : "Quick create"}
+            </Button>
             <Link href="/feed">
               <Button variant="outline">Back to feed</Button>
             </Link>

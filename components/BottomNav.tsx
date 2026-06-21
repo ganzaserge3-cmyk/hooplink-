@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, MessageCircle, PlusSquare, Search, User } from "lucide-react";
+import { Bell, Home, MessageCircle, PlusSquare, Search, User, Film } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuthContext } from "@/components/AuthProvider";
+import { NotificationBell } from "@/components/NotificationBell";
 
 const tabs = [
   { href: "/feed", label: "Feed", icon: Home },
   { href: "/search", label: "Search", icon: Search },
+  { href: "/stories", label: "Stories", icon: Film },
   { href: "/messages", label: "Messages", icon: MessageCircle },
   { href: "/profile", label: "Profile", icon: User },
 ];
@@ -28,6 +30,7 @@ export default function BottomNav() {
             <span className="text-xs">{label}</span>
           </Link>
         ))}
+        <NotificationBell />
         <Button size="icon" className="h-12 w-12 rounded-2xl shadow-lg" asChild>
           <Link href="/upload"><PlusSquare className="h-5 w-5" /></Link>
         </Button>

@@ -76,10 +76,17 @@
 
   html {
     scroll-behavior: smooth;
+    font-size: 16px;
+    letter-spacing: 0;
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
+    font-size: 1rem;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     background-image:
       radial-gradient(circle at top, rgba(14, 165, 233, 0.12), transparent 20%),
       radial-gradient(circle at right top, rgba(34, 211, 238, 0.1), transparent 16%),
@@ -106,5 +113,15 @@
 
   .scrollbar-thin {
     scrollbar-width: thin;
+  }
+
+  .text-xs {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+
+  .text-sm {
+    font-size: 0.95rem;
+    line-height: 1.4rem;
   }
 }

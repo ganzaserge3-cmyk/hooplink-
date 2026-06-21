@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -20,8 +20,9 @@ import {
   snoozeNotification,
   subscribeToNotifications,
 } from "@/lib/notifications";
-import { toggleFollowUser } from "@/lib/user-profile";
+import { getUserProfileById, toggleFollowUser } from "@/lib/user-profile";
 import { formatTimeAgo } from "@/lib/posts";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import {
   getCurrentUserSettings,
   updateCurrentUserSettings,
@@ -196,6 +197,8 @@ function NotificationsPageContent() {
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [followingIds, setFollowingIds] = useState<string[]>([]);
+  const pushNotifications = usePushNotifications();
 
   useEffect(() => {
     if (!user) {
@@ -203,6 +206,12 @@ function NotificationsPageContent() {
     }
 
     void getCurrentUserSettings().then(setSettings);
+    void getUserProfileById(user.uid).then((profile) => {
+      const following = Array.isArray((profile as Record<string, unknown> | null)?.following)
+        ? ((profile as Record<string, unknown>).following as string[])
+        : [];
+      setFollowingIds(following);
+    });
     return subscribeToNotifications(user.uid, setNotifications);
   }, [user]);
 
@@ -312,10 +321,15 @@ function NotificationsPageContent() {
   };
 
   const handleFollowBack = async (actionKey: string, group: NotificationGroup) => {
+    const actorId = group.notifications[0].actorId;
+    setFollowingIds((current) => Array.from(new Set([...current, actorId])));
     setBusyAction(actionKey);
     try {
-      await toggleFollowUser(group.notifications[0].actorId, false);
+      await toggleFollowUser(actorId, false);
       await Promise.all(group.notifications.map((notification) => markNotificationRead(notification.id)));
+    } catch (error) {
+      setFollowingIds((current) => current.filter((id) => id !== actorId));
+      throw error;
     } finally {
       setBusyAction(null);
     }
@@ -417,13 +431,24 @@ function NotificationsPageContent() {
 
                             <div className="flex flex-wrap gap-2">
                               {group.types.includes("follow") && group.actionLabel === "Follow back" ? (
-                                <Button
-                                  size="sm"
-                                  onClick={() => void handleFollowBack(`follow-${group.key}`, group)}
-                                  disabled={busyAction === `follow-${group.key}`}
-                                >
-                                  {group.actionLabel}
-                                </Button>
+                                followingIds.includes(group.notifications[0].actorId) ? (
+                                  <Link
+                                    href={group.actionUrl}
+                                    onClick={() =>
+                                      void applyToGroup(`open-${group.key}`, group, markNotificationRead)
+                                    }
+                                  >
+                                    <Button size="sm" variant="secondary">Following</Button>
+                                  </Link>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => void handleFollowBack(`follow-${group.key}`, group)}
+                                    disabled={busyAction === `follow-${group.key}`}
+                                  >
+                                    {busyAction === `follow-${group.key}` ? "Following" : group.actionLabel}
+                                  </Button>
+                                )
                               ) : (
                                 <Link
                                   href={group.actionUrl}
@@ -485,7 +510,7 @@ function NotificationsPageContent() {
                                 {group.notifications
                                   .slice(0, 3)
                                   .map((notification) => notification.message)
-                                  .join(" ΓÇó ")}
+                                  .join(" G�� ")}
                               </div>
                             ) : null}
                           </div>
@@ -575,6 +600,28 @@ function NotificationsPageContent() {
               <CardContent className="space-y-4">
                 {settings ? (
                   <>
+                    <div className="rounded-xl border p-3">
+                      <p className="text-sm font-medium">Phone alerts</p>
+                      <p className="mt-1 text-sm text-muted-foreground">Enable push alerts for follows, messages, comments, and other activity.</p>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => void pushNotifications.requestPermission()}
+                          disabled={!pushNotifications.supported || pushNotifications.permission === "granted"}
+                        >
+                          {pushNotifications.permission === "granted" ? "Enabled" : "Enable push"}
+                        </Button>
+                        {pushNotifications.token ? (
+                          <Button size="sm" variant="outline" onClick={() => void pushNotifications.unregister()}>
+                            Turn off this device
+                          </Button>
+                        ) : null}
+                      </div>
+                      {pushNotifications.error ? (
+                        <p className="mt-2 text-sm text-destructive">{pushNotifications.error}</p>
+                      ) : null}
+                    </div>
+
                     <div className="rounded-xl border p-3">
                       <p className="text-sm font-medium">Delivery mode</p>
                       <select

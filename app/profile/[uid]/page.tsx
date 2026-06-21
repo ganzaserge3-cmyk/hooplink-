@@ -437,19 +437,42 @@ export default function PublicProfilePage({ params }: { params: { uid: string } 
                 ) : (
                   <>
                     <Button
-                      disabled={!user || pending}
+                      disabled={!user}
+                      aria-busy={pending}
                       onClick={async () => {
+                        if (!user || pending) return;
+                        const wasFollowing = isFollowing;
+                        setProfile((current) => {
+                          if (!current) return current;
+                          const followers = current.followers ?? [];
+                          return {
+                            ...current,
+                            followers: wasFollowing
+                              ? followers.filter((uid) => uid !== user.uid)
+                              : Array.from(new Set([...followers, user.uid])),
+                          };
+                        });
                         setPending(true);
                         try {
-                          await toggleFollowUser(params.uid, isFollowing);
-                          const refreshed = await getUserProfileById(params.uid);
-                          setProfile((refreshed as PublicProfile | null) ?? null);
+                          await toggleFollowUser(params.uid, wasFollowing);
+                        } catch (error) {
+                          setProfile((current) => {
+                            if (!current) return current;
+                            const followers = current.followers ?? [];
+                            return {
+                              ...current,
+                              followers: wasFollowing
+                                ? Array.from(new Set([...followers, user.uid]))
+                                : followers.filter((uid) => uid !== user.uid),
+                            };
+                          });
+                          throw error;
                         } finally {
                           setPending(false);
                         }
                       }}
                     >
-                      {isFollowing ? "Following" : "Follow"}
+                      {pending ? (isFollowing ? "Following" : "Follow") : isFollowing ? "Following" : "Follow"}
                     </Button>
                     <Button variant="outline" asChild>
                       <Link href={`/messages?user=${params.uid}`}>Message</Link>

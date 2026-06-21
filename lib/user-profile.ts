@@ -10,6 +10,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  writeBatch,
 } from "firebase/firestore";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { auth, db } from "@/lib/firebase";
@@ -941,11 +942,16 @@ export async function toggleFollowUser(targetUid: string, isFollowing: boolean) 
     return;
   }
 
-  // Initialize gamification for both users if needed
-  await initializeUserGamification(currentUid);
-  await initializeUserGamification(targetUid);
+  const currentUser = auth.currentUser;
 
-  await setDoc(
+  // Check if target user is already following current user (for "Follow back" logic)
+  const targetUserDoc = await getDoc(doc(db, "users", targetUid));
+  const targetUserData = targetUserDoc.data() as Record<string, unknown> | null;
+  const targetFollowing = Array.isArray(targetUserData?.following) ? (targetUserData?.following as string[]) : [];
+  const isAlreadyFollowingTarget = targetFollowing.includes(currentUid);
+
+  const batch = writeBatch(db);
+  batch.set(
     doc(db, "users", currentUid),
     {
       following: isFollowing ? arrayRemove(targetUid) : arrayUnion(targetUid),
@@ -953,8 +959,7 @@ export async function toggleFollowUser(targetUid: string, isFollowing: boolean) 
     },
     { merge: true }
   );
-
-  await setDoc(
+  batch.set(
     doc(db, "users", targetUid),
     {
       followers: isFollowing ? arrayRemove(currentUid) : arrayUnion(currentUid),
@@ -963,42 +968,47 @@ export async function toggleFollowUser(targetUid: string, isFollowing: boolean) 
     { merge: true }
   );
 
-  const targetSnapshot = await getDoc(doc(db, "users", targetUid));
-  const targetData = targetSnapshot.exists() ? (targetSnapshot.data() as Record<string, unknown>) : null;
-  const nextFollowers = Array.isArray(targetData?.followers) ? (targetData?.followers as string[]) : [];
-  await recordFollowerGrowth(targetUid, nextFollowers.length);
-
-  // Update activity streak and check achievements
-  await updateActivityStreak(currentUid);
-
-  // Check achievements for both users
-  const currentUserData = await getUserProfileById(currentUid);
-  const targetUserData = await getUserProfileById(targetUid);
-
-  if (currentUserData) {
-    await checkAndAwardAchievements(currentUid, currentUserData);
-  }
-  if (targetUserData) {
-    await checkAndAwardAchievements(targetUid, targetUserData);
-  }
-
-  // Award points for following/unfollowing
-  if (!isFollowing) {
-    await addPoints(currentUid, 5, "followed_user");
-  }
+  await batch.commit();
 
   if (!isFollowing) {
-    await createNotification({
-      type: "follow",
-      recipientId: targetUid,
-      actorId: currentUid,
-      actorName: auth.currentUser.displayName || "HoopLink User",
-      actorAvatar: auth.currentUser.photoURL || "",
-      message: `${auth.currentUser.displayName || "Someone"} followed you.`,
-    });
+    // Only create notification if target user is not already following current user
+    // If they are already following, it's a mutual follow, no need for "Follow back" notification
+    if (!isAlreadyFollowingTarget) {
+      void createNotification({
+        type: "follow",
+        recipientId: targetUid,
+        actorId: currentUid,
+        actorName: currentUser.displayName || "HoopLink User",
+        actorAvatar: currentUser.photoURL || "",
+        message: `${currentUser.displayName || "Someone"} followed you.`,
+        actionLabel: "Follow back",
+      }).catch((error) => console.error("Failed to create follow notification:", error));
+    }
   }
+
+  void (async () => {
+    try {
+      const targetSnapshot = await getDoc(doc(db, "users", targetUid));
+      const targetData = targetSnapshot.exists() ? (targetSnapshot.data() as Record<string, unknown>) : null;
+      const nextFollowers = Array.isArray(targetData?.followers) ? (targetData?.followers as string[]) : [];
+      await recordFollowerGrowth(targetUid, nextFollowers.length);
+      await updateActivityStreak(currentUid);
+
+      const [currentUserData, targetUserData] = await Promise.all([
+        getUserProfileById(currentUid),
+        getUserProfileById(targetUid),
+      ]);
+
+      await Promise.all([
+        currentUserData ? checkAndAwardAchievements(currentUid, currentUserData) : Promise.resolve(),
+        targetUserData ? checkAndAwardAchievements(targetUid, targetUserData) : Promise.resolve(),
+        !isFollowing ? addPoints(currentUid, 5, "followed_user") : Promise.resolve(),
+      ]);
+    } catch (error) {
+      console.error("Follow side effects failed:", error);
+    }
+  })();
 }
-
 export async function toggleFollowTopic(topic: string, isFollowing: boolean) {
   if (!auth?.currentUser || !db) {
     throw new Error("You must be signed in to follow topics.");

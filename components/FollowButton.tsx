@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { toggleFollowUser, getUserProfileById } from "@/lib/user-profile";
+import { toggleFollowUser } from "@/lib/user-profile";
 
 interface FollowButtonProps {
   targetUid: string;
@@ -30,27 +30,30 @@ export function FollowButton({
   const [pending, setPending] = useState(false);
   const [currentFollowing, setCurrentFollowing] = useState(isFollowing);
 
+  useEffect(() => {
+    setCurrentFollowing(isFollowing);
+  }, [isFollowing, targetUid]);
+
   const handleFollowClick = async () => {
     if (!user) {
-      // Redirect to login or show login modal
       window.location.href = "/login";
       return;
     }
 
+    if (pending) return;
+
+    const previousFollowing = currentFollowing;
+    const nextFollowing = !previousFollowing;
+    setCurrentFollowing(nextFollowing);
+    onFollowChange?.(nextFollowing);
     setPending(true);
+
     try {
-      // Toggle follow status
-      await toggleFollowUser(targetUid, currentFollowing);
-      
-      // Update local state
-      const newFollowingStatus = !currentFollowing;
-      setCurrentFollowing(newFollowingStatus);
-      
-      // Call callback if provided
-      onFollowChange?.(newFollowingStatus);
+      await toggleFollowUser(targetUid, previousFollowing);
     } catch (error) {
-      console.error("Failed to toggle follow:", error);
-      // Optionally show error toast here
+      console.error(`Failed to toggle follow for ${displayName}:`, error);
+      setCurrentFollowing(previousFollowing);
+      onFollowChange?.(previousFollowing);
     } finally {
       setPending(false);
     }
@@ -65,12 +68,13 @@ export function FollowButton({
   return (
     <Button
       onClick={handleFollowClick}
-      disabled={!user || pending}
+      disabled={!user}
       variant={currentFollowing && showFollowing ? "secondary" : variant}
       size={size}
       className={className}
+      aria-busy={pending}
     >
-      {pending ? "..." : buttonText}
+      {pending ? (currentFollowing ? "Following" : "Follow") : buttonText}
     </Button>
   );
 }

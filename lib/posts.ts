@@ -1563,7 +1563,8 @@ export async function getPostsByIds(postIds: string[]) {
 
 export function subscribeToComments(
   postId: string,
-  callback: (comments: PostComment[]) => void
+  callback: (comments: PostComment[]) => void,
+  commentsLimit = 10
 ): ListenerCleanup {
   if (!db) {
     callback([]);
@@ -1574,7 +1575,7 @@ export function subscribeToComments(
     collection(db, "comments"),
     where("postId", "==", postId),
     orderBy("createdAt", "desc"),
-    limit(10)
+    limit(commentsLimit)
   );
 
   return onSnapshot(

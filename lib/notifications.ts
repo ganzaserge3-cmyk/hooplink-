@@ -340,19 +340,36 @@ export async function createNotification(input: {
     postId: input.postId ?? null,
   });
 
+  const actionUrl = input.actionUrl ?? metadata.actionUrl(input);
   await addDoc(collection(db, "notifications"), {
     ...input,
     postId: input.postId ?? null,
     category: input.category ?? metadata.category,
     priority: input.priority ?? metadata.priority,
     actionLabel: input.actionLabel ?? metadata.actionLabel,
-    actionUrl: input.actionUrl ?? metadata.actionUrl(input),
+    actionUrl,
     archivedBy: [],
     deletedBy: [],
     snoozedUntilBy: {},
     readBy: [],
     createdAt: serverTimestamp(),
   });
+
+  if (typeof window !== "undefined") {
+    void fetch("/api/notifications/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipientId: input.recipientId,
+        title: "HoopLink",
+        body: input.message,
+        url: actionUrl,
+        type: input.type,
+        actorId: input.actorId,
+        postId: input.postId,
+      }),
+    }).catch(() => undefined);
+  }
 }
 
 export async function markNotificationRead(notificationId: string) {
